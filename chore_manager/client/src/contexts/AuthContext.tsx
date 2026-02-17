@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiRequest, API_ENDPOINTS } from '../utils/api';
 
 interface User {
   id: string;
   username: string;
   name: string;
+  email?: string;
+  role?: string;
 }
 
 interface AuthContextType {
@@ -11,53 +14,76 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user database - in production, this would be a real backend
-const MOCK_USERS = [
-  { id: '1', username: 'admin', password: 'admin123', name: 'Admin User' },
-  { id: '2', username: 'user', password: 'user123', name: 'Regular User' },
-  { id: '3', username: 'demo', password: 'demo', name: 'Demo User' },
-];
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check for stored session on mount
+  // Check for stored session and validate token on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('choreapp_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        localStorage.removeItem('choreapp_user');
+    const initAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      const storedUser = localStorage.getItem('choreapp_user');
+
+      if (token && storedUser) {
+        try {
+          // Validate token by fetching current user from API
+          const userData = await apiRequest(API_ENDPOINTS.ME);
+          setUser(userData);
+        } catch (error) {
+          // Token invalid, expired, OR server was restarted (user no longer in memory DB)
+          // Silently clear stale credentials so user is shown the login screen
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('choreapp_user');
+          setUser(null);
+        }
       }
-    }
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      // Call real backend API
+      const response = await apiRequest(API_ENDPOINTS.LOGIN, {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
 
-    const foundUser = MOCK_USERS.find(
-      (u) => u.username === username && u.password === password
-    );
+      if (response.token && response.user) {
+        // Store token and user data
+        localStorage.setItem('authToken', response.token);
+        localStorage.setItem('choreapp_user', JSON.stringify(response.user));
+        setUser(response.user);
+        return true;
+      }
 
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('choreapp_user', JSON.stringify(userWithoutPassword));
-      return true;
+      return false;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
     }
-
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('choreapp_user');
+  const logout = async () => {
+    try {
+      // Call logout endpoint (optional, for server-side session cleanup)
+      await apiRequest(API_ENDPOINTS.LOGOUT, { method: 'POST' });
+    } catch (error) {
+      // Even if API call fails, still logout locally
+      console.error('Logout API call failed:', error);
+    } finally {
+      // Clear local storage and state
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('choreapp_user');
+      setUser(null);
+    }
   };
 
   const value = {
@@ -65,7 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     login,
     logout,
+    isLoading,
   };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return null; // Or a loading spinner component
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

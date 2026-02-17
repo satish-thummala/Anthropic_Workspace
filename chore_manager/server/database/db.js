@@ -40,7 +40,6 @@ function initializeUsers() {
     },
   ];
 
-  // Hash passwords
   defaultUsers.forEach((user) => {
     const hashedPassword = bcrypt.hashSync(user.password, 10);
     db.users.push({ ...user, password: hashedPassword });
@@ -57,7 +56,7 @@ function initializeTeamMembers() {
       name: 'Alice Johnson',
       email: 'alice@example.com',
       role: 'Team Lead',
-      color: '#1976d2',
+      color: '#FF6B6B',
       createdAt: new Date().toISOString(),
     },
     {
@@ -65,7 +64,7 @@ function initializeTeamMembers() {
       name: 'Bob Smith',
       email: 'bob@example.com',
       role: 'Developer',
-      color: '#dc004e',
+      color: '#4ECDC4',
       createdAt: new Date().toISOString(),
     },
     {
@@ -73,7 +72,7 @@ function initializeTeamMembers() {
       name: 'Carol Williams',
       email: 'carol@example.com',
       role: 'Designer',
-      color: '#9c27b0',
+      color: '#45B7D1',
       createdAt: new Date().toISOString(),
     },
   ];
@@ -82,7 +81,8 @@ function initializeTeamMembers() {
   console.log('✅ Default team members initialized');
 }
 
-// Initialize with sample chores
+// Initialize with sample chores using the client-compatible data structure:
+// recurrence: { type: 'none' | 'weekly' | 'monthly', daysOfWeek?, dayOfMonth?, endDate? }
 function initializeChores() {
   const today = new Date();
   const tomorrow = new Date(today);
@@ -92,28 +92,36 @@ function initializeChores() {
     {
       id: uuidv4(),
       title: 'Clean Kitchen',
-      description: 'Wipe counters, clean sink, take out trash',
+      notes: 'Wipe counters, clean sink, take out trash',
       date: today.toISOString().split('T')[0],
       assigneeId: db.teamMembers[0]?.id,
-      recurring: false,
-      status: 'pending',
-      color: '#ff9800',
+      recurrence: { type: 'none' },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
     {
       id: uuidv4(),
       title: 'Weekly Team Meeting',
-      description: 'Discuss weekly goals and progress',
+      notes: 'Discuss weekly goals and progress',
       date: tomorrow.toISOString().split('T')[0],
       assigneeId: db.teamMembers[1]?.id,
-      recurring: true,
-      recurrenceRule: {
-        frequency: 'weekly',
-        interval: 1,
+      recurrence: {
+        type: 'weekly',
+        daysOfWeek: [1], // Monday
       },
-      status: 'pending',
-      color: '#4caf50',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: uuidv4(),
+      title: 'Monthly Report',
+      notes: 'Compile and send monthly chore report',
+      date: today.toISOString().split('T')[0],
+      assigneeId: db.teamMembers[2]?.id,
+      recurrence: {
+        type: 'monthly',
+        dayOfMonth: new Date().getDate(),
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -131,7 +139,6 @@ function initializeDatabase() {
   console.log('✅ Database initialized with sample data\n');
 }
 
-// Initialize on module load
 initializeDatabase();
 
 module.exports = db;
