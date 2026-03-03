@@ -98,9 +98,22 @@ export function LoginPage() {
           </form>
 
           <div className="hint-box">
-            <p style={{ fontWeight: 600, marginBottom: 8 }}>Demo accounts:</p>
-            <p>Admin:   <code>admin@techcorp.com</code> / <code>Admin@123</code></p>
-            <p style={{ marginTop: 4 }}>Manager: <code>manager@techcorp.com</code> / <code>Manager@123</code></p>
+            <p style={{ fontWeight: 600, marginBottom: 8 }}>Demo accounts (click to fill):</p>
+            {[
+              { role: 'Admin',   email: 'admin@techcorp.com',   pwd: 'Admin@123' },
+              { role: 'Manager', email: 'manager@techcorp.com', pwd: 'Manager@123' },
+            ].map(({ role, email: e, pwd }) => (
+              <p
+                key={role}
+                style={{ marginTop: 4, cursor: 'pointer', borderRadius: 4, padding: '2px 4px', transition: 'background 0.15s' }}
+                onMouseEnter={(ev) => (ev.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
+                onMouseLeave={(ev) => (ev.currentTarget.style.background = 'transparent')}
+                onClick={() => { setEmail(e); setPassword(pwd); setErrors({}); }}
+                title={`Click to fill ${role} credentials`}
+              >
+                {role}: <code>{e}</code> / <code>{pwd}</code>
+              </p>
+            ))}
           </div>
         </div>
       </div>
