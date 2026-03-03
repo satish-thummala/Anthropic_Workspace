@@ -1,0 +1,199 @@
+# ==========================================
+# Node.js Dependencies
+# ==========================================
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# ==========================================
+# Environment Variables
+# ==========================================
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+client/.env
+server/.env
+
+# ==========================================
+# Build Outputs
+# ==========================================
+# Frontend builds
+client/dist/
+client/build/
+client/.vite/
+
+# Backend builds
+server/dist/
+server/build/
+
+# ==========================================
+# Logs
+# ==========================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# Testing & Coverage
+# ==========================================
+coverage/
+.nyc_output/
+*.lcov
+.coverage/
+
+# ==========================================
+# TypeScript
+# ==========================================
+*.tsbuildinfo
+client/*.tsbuildinfo
+server/*.tsbuildinfo
+
+# ==========================================
+# Package Manager
+# ==========================================
+# npm
+.npm
+npm-debug.log*
+
+# yarn
+.yarn-integrity
+yarn.lock
+yarn-error.log
+
+# pnpm
+pnpm-lock.yaml
+.pnpm-debug.log
+
+# ==========================================
+# IDEs & Editors
+# ==========================================
+# VSCode
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.*.swp
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ==========================================
+# Operating Systems
+# ==========================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+.AppleDB
+.AppleDesktop
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# ==========================================
+# Runtime & Temp Files
+# ==========================================
+*.pid
+*.seed
+*.pid.lock
+pids/
+tmp/
+temp/
+.tmp/
+
+# ==========================================
+# Optional Caches
+# ==========================================
+.eslintcache
+.stylelintcache
+.cache/
+.parcel-cache/
+
+# ==========================================
+# Miscellaneous
+# ==========================================
+# Lock files (keep package-lock.json but ignore others)
+# Uncomment if you want to ignore package-lock.json
+# package-lock.json
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# ==========================================
+# Project Specific
+# ==========================================
+# Uploaded files (if any)
+uploads/
+server/uploads/
+
+# Static generated files
+client/static/
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+
+# ==========================================
+# Debug & Profiling
+# ==========================================
+*.cpuprofile
+*.heapsnapshot
+
+# ==========================================
+# Keep These Files
+# ==========================================
+# Ensure we keep important config files
+!.gitignore
+!.env.example
