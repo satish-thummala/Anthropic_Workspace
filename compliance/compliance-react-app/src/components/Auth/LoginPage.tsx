@@ -3,7 +3,7 @@ import { Icons } from '../shared/Icons';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, isLoading: authLoading } = useAuth();
   const [email, setEmail]     = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
@@ -23,10 +23,25 @@ export function LoginPage() {
     if (Object.keys(e).length) { setErrors(e); return; }
     setErrors({});
     setLoading(true);
-    const ok = await login(email, password);
-    setLoading(false);
-    if (!ok) setErrors({ general: 'Invalid credentials. Try the demo accounts below.' });
+    
+    try {
+      const ok = await login(email, password);
+      if (!ok) {
+        setErrors({ general: 'Invalid credentials. Please check your email and password.' });
+      }
+      // If successful, user will be redirected automatically by AuthContext
+    } catch (error: any) {
+      // Handle network errors or other exceptions
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          'Unable to connect to server. Please try again.';
+      setErrors({ general: errorMessage });
+    } finally {
+      setLoading(false);
+    }
   }
+
+  const isProcessing = loading || authLoading;
 
   return (
     <div className="login-wrap">
@@ -68,6 +83,7 @@ export function LoginPage() {
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: '' })); }}
+                disabled={isProcessing}
               />
               {errors.email && <p className="form-error">{errors.email}</p>}
             </div>
@@ -80,20 +96,21 @@ export function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: '' })); }}
+                disabled={isProcessing}
               />
               {errors.password && <p className="form-error">{errors.password}</p>}
             </div>
 
             {errors.general && <p className="form-error" style={{ marginBottom: 12 }}>{errors.general}</p>}
 
-            <button className="btn btn-primary" type="submit" disabled={loading}>
-              {loading && (
+            <button className="btn btn-primary" type="submit" disabled={isProcessing}>
+              {isProcessing && (
                 <span
                   className="spin"
                   style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}
                 />
               )}
-              {loading ? 'Signing in…' : 'Sign In'}
+              {isProcessing ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
 
