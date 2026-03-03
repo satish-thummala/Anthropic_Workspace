@@ -194,7 +194,7 @@
   .upload-sub { font-size: 13px; color: var(--text2); }
 
   /* TOPBAR ACTIONS */
-  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; margin-left: auto;}
   .notif-btn { width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); position: relative; transition: all 0.15s; }
   .notif-btn:hover { border-color: var(--border2); color: var(--text); }
   .notif-btn svg { width: 16px; height: 16px; }
