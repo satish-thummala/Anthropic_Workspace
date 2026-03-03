@@ -18,39 +18,84 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        seedUser(
+        // Admin user
+        createOrUpdateUser(
                 "admin@techcorp.com",
                 "Admin@123",
                 "Sarah Chen",
                 "Compliance Analyst",
                 "Nirvahak Inc.",
                 "SC");
-        seedUser(
+
+        // Manager user
+        createOrUpdateUser(
                 "manager@techcorp.com",
                 "Manager@123",
                 "James Patel",
                 "Risk Manager",
                 "Nirvahak Inc.",
                 "JP");
-        log.info("Demo users seeded successfully");
+
+        // Analyst user
+        createOrUpdateUser(
+                "analyst@techcorp.com",
+                "Analyst@123",
+                "Emily Rodriguez",
+                "ANALYST",
+                "Nirvahak Inc.",
+                "ER");
+
+        log.info("✓ Demo users initialized successfully");
     }
 
-    private void seedUser(String email, String rawPassword, String name,
-            String role, String org, String avatar) {
-        if (!userRepository.existsByEmail(email)) {
-            User user = User.builder()
+    private void createOrUpdateUser(String email, String rawPassword, String name,
+            String role, String organization, String avatar) {
+        User user = userRepository.findByEmail(email).orElse(null);
+
+        if (user == null) {
+            // Create new user
+            user = User.builder()
                     .email(email)
                     .password(passwordEncoder.encode(rawPassword))
                     .name(name)
                     .role(role)
-                    .organization(org)
+                    .organization(organization)
                     .avatar(avatar)
                     .enabled(true)
                     .build();
             userRepository.save(user);
-            log.info("Created user: {}", email);
+            log.info("✓ Created user: {} ({}) - {}", name, role, email);
         } else {
-            log.debug("User already exists: {}", email);
+            // Update existing user to ensure organization and avatar are set
+            boolean updated = false;
+
+            if (user.getOrganization() == null || user.getOrganization().isEmpty()) {
+                user.setOrganization(organization);
+                updated = true;
+            }
+
+            if (user.getAvatar() == null || user.getAvatar().isEmpty()) {
+                user.setAvatar(avatar);
+                updated = true;
+            }
+
+            // Update name and role if needed
+            if (!name.equals(user.getName())) {
+                user.setName(name);
+                updated = true;
+            }
+
+            if (!role.equals(user.getRole())) {
+                user.setRole(role);
+                updated = true;
+            }
+
+            if (updated) {
+                userRepository.save(user);
+                log.info("✓ Updated user: {} - added organization and avatar", email);
+            } else {
+                log.debug("User already exists with all fields: {}", email);
+            }
         }
     }
 }
