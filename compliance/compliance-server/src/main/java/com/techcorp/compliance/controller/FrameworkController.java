@@ -2,6 +2,7 @@ package com.techcorp.compliance.controller;
 
 import com.techcorp.compliance.dto.AuthDTOs.ApiResponse;
 import com.techcorp.compliance.dto.FrameworkDTOs.*;
+import com.techcorp.compliance.service.DocumentMappingService;
 import com.techcorp.compliance.service.FrameworkService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,52 +19,37 @@ import java.util.List;
 @Slf4j
 public class FrameworkController {
 
-    private final FrameworkService frameworkService;
+    private final FrameworkService       frameworkService;
+    private final DocumentMappingService mappingService;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // FRAMEWORK ENDPOINTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * GET /api/v1/frameworks
-     * Returns all active frameworks as summary cards.
-     * ← React: Frameworks list page (the 4 cards)
-     *
-     * Response example:
-     * [
-     *   {
-     *     "id": "uuid", "code": "ISO27001", "name": "ISO/IEC 27001",
-     *     "version": "2022", "color": "#3B82F6",
-     *     "totalControls": 17, "coveredControls": 12, "coveragePercentage": 71,
-     *     "industry": "Technology", "isActive": true
-     *   }, ...
-     * ]
-     */
+    // ── GET all frameworks ────────────────────────────────────────────────────
     @GetMapping
     public ResponseEntity<List<FrameworkSummary>> getAllFrameworks() {
         return ResponseEntity.ok(frameworkService.getAllSummaries());
     }
 
+    // ── POST /map-all  ────────────────────────────────────────────────────────
     /**
-     * GET /api/v1/frameworks/{code}
-     * Returns full framework detail with controls and breakdown stats.
-     * ← React: "View Details →" button on each framework card
-     *
-     * @param code  e.g. ISO27001 | SOC2 | GDPR | HIPAA  (case-insensitive)
+     * Runs the document-to-control mapping engine.
+     * Persists isCovered changes to DB and returns:
+     *   - documentsProcessed, controlsUpdated, controlsAlreadyCovered
+     *   - frameworksAffected  (list of codes)
+     *   - updatedFrameworks   (fresh card data — same shape as GET /frameworks)
+     *   - message             (human-readable summary)
      */
+    @PostMapping("/map-all")
+    public ResponseEntity<MappingResult> mapAll() {
+        log.info("POST /frameworks/map-all triggered");
+        return ResponseEntity.ok(mappingService.mapAll());
+    }
+
+    // ── GET single framework detail ───────────────────────────────────────────
     @GetMapping("/{code}")
     public ResponseEntity<FrameworkDetail> getFrameworkDetail(@PathVariable String code) {
         return ResponseEntity.ok(frameworkService.getDetail(code));
     }
 
-    /**
-     * POST /api/v1/frameworks
-     * Creates a new compliance framework.
-     *
-     * Request body:
-     * { "code":"PCI_DSS", "name":"PCI DSS", "version":"4.0",
-     *   "description":"...", "color":"#EF4444", "industry":"Finance" }
-     */
+    // ── POST create framework ─────────────────────────────────────────────────
     @PostMapping
     public ResponseEntity<FrameworkSummary> createFramework(
             @Valid @RequestBody CreateFrameworkRequest request) {
@@ -71,10 +57,7 @@ public class FrameworkController {
                 .body(frameworkService.create(request));
     }
 
-    /**
-     * PATCH /api/v1/frameworks/{code}
-     * Partially updates a framework (name, color, active status, etc.).
-     */
+    // ── PATCH update framework ────────────────────────────────────────────────
     @PatchMapping("/{code}")
     public ResponseEntity<FrameworkSummary> updateFramework(
             @PathVariable String code,
@@ -82,21 +65,7 @@ public class FrameworkController {
         return ResponseEntity.ok(frameworkService.update(code, request));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // CONTROL ENDPOINTS  (nested under /frameworks/{code}/controls)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * GET /api/v1/frameworks/{code}/controls
-     * Returns controls for a framework with optional query filters.
-     * ← React: controls table inside View Details page
-     *
-     * Query params (all optional, mutually exclusive — first match wins):
-     *   ?keyword=encryption          full-text search on code/title/description
-     *   ?severity=CRITICAL           CRITICAL | HIGH | MEDIUM | LOW
-     *   ?category=Organizational+Controls
-     *   ?isCovered=false             true | false
-     */
+    // ── GET controls (with optional filters) ──────────────────────────────────
     @GetMapping("/{code}/controls")
     public ResponseEntity<List<ControlResponse>> getControls(
             @PathVariable String code,
@@ -108,19 +77,13 @@ public class FrameworkController {
                 frameworkService.getControls(code, severity, category, isCovered, keyword));
     }
 
-    /**
-     * GET /api/v1/frameworks/{code}/controls/categories
-     * Distinct category list for the filter dropdown.
-     */
+    // ── GET distinct categories ───────────────────────────────────────────────
     @GetMapping("/{code}/controls/categories")
     public ResponseEntity<List<String>> getCategories(@PathVariable String code) {
         return ResponseEntity.ok(frameworkService.getCategories(code));
     }
 
-    /**
-     * GET /api/v1/frameworks/{code}/controls/{controlId}
-     * Single control by UUID.
-     */
+    // ── GET single control ────────────────────────────────────────────────────
     @GetMapping("/{code}/controls/{controlId}")
     public ResponseEntity<ControlResponse> getControl(
             @PathVariable String code,
@@ -128,21 +91,7 @@ public class FrameworkController {
         return ResponseEntity.ok(frameworkService.getControlById(controlId));
     }
 
-    /**
-     * POST /api/v1/frameworks/{code}/controls
-     * Adds a new control to a framework.
-     *
-     * Request body:
-     * {
-     *   "code": "A.12.6.1",
-     *   "title": "Vulnerability Management",
-     *   "category": "Technological Controls",
-     *   "severity": "CRITICAL",
-     *   "isCovered": false,
-     *   "evidenceRequired": ["Scan Reports","Patch Records"],
-     *   "displayOrder": 20
-     * }
-     */
+    // ── POST create control ───────────────────────────────────────────────────
     @PostMapping("/{code}/controls")
     public ResponseEntity<ControlResponse> createControl(
             @PathVariable String code,
@@ -151,10 +100,7 @@ public class FrameworkController {
                 .body(frameworkService.createControl(code, request));
     }
 
-    /**
-     * PATCH /api/v1/frameworks/{code}/controls/{controlId}
-     * Partial update of any control field.
-     */
+    // ── PATCH update control ──────────────────────────────────────────────────
     @PatchMapping("/{code}/controls/{controlId}")
     public ResponseEntity<ControlResponse> updateControl(
             @PathVariable String code,
@@ -163,14 +109,7 @@ public class FrameworkController {
         return ResponseEntity.ok(frameworkService.updateControl(controlId, request));
     }
 
-    /**
-     * PATCH /api/v1/frameworks/{code}/controls/{controlId}/coverage
-     * Toggle the covered status of a single control.
-     * ← React: coverage checkbox in the View Details controls table
-     *
-     * Request body:  { "isCovered": true }
-     * Response:      updated ControlResponse
-     */
+    // ── PATCH toggle coverage ─────────────────────────────────────────────────
     @PatchMapping("/{code}/controls/{controlId}/coverage")
     public ResponseEntity<ControlResponse> updateCoverage(
             @PathVariable String code,
@@ -180,10 +119,7 @@ public class FrameworkController {
                 frameworkService.updateCoverage(controlId, request.isCovered()));
     }
 
-    /**
-     * DELETE /api/v1/frameworks/{code}/controls/{controlId}
-     * Permanently deletes a control (also refreshes framework stats).
-     */
+    // ── DELETE control ────────────────────────────────────────────────────────
     @DeleteMapping("/{code}/controls/{controlId}")
     public ResponseEntity<ApiResponse> deleteControl(
             @PathVariable String code,

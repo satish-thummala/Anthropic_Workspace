@@ -10,11 +10,9 @@ export interface User {
   avatar:        string;
 }
 
-export interface UserWithPassword extends User {
-  password: string;
-}
+export interface UserWithPassword extends User { password: string; }
 
-// ─── FRAMEWORK  (local UI shape) ──────────────────────────────────────────────
+// ─── FRAMEWORK  (UI card shape) ───────────────────────────────────────────────
 
 export interface Framework {
   code:        string;
@@ -26,7 +24,7 @@ export interface Framework {
   description: string;
 }
 
-// ─── FRAMEWORK API SHAPES (exact Spring Boot responses) ──────────────────────
+// ─── API SHAPES (Spring Boot responses) ──────────────────────────────────────
 
 export interface ApiFrameworkSummary {
   id:                 string;
@@ -77,7 +75,6 @@ export interface ApiFrameworkDetail extends ApiFrameworkSummary {
   controls:      ApiControl[];
 }
 
-/** Map API summary → UI Framework shape (for components that use Framework) */
 export function apiToFramework(a: ApiFrameworkSummary): Framework {
   return {
     code:        a.code,
@@ -88,6 +85,17 @@ export function apiToFramework(a: ApiFrameworkSummary): Framework {
     color:       a.color,
     description: a.description,
   };
+}
+
+// ─── MAPPING RESULT  (POST /api/v1/frameworks/map-all) ────────────────────────
+
+export interface MappingResult {
+  documentsProcessed:     number;
+  controlsUpdated:        number;
+  controlsAlreadyCovered: number;
+  frameworksAffected:     string[];
+  updatedFrameworks:      ApiFrameworkSummary[];
+  message:                string;
 }
 
 // ─── DOCUMENT ─────────────────────────────────────────────────────────────────
@@ -123,10 +131,7 @@ export interface ComplianceGap {
 
 // ─── RISK ─────────────────────────────────────────────────────────────────────
 
-export interface RiskHistoryPoint {
-  month: string;
-  score: number;
-}
+export interface RiskHistoryPoint { month: string; score: number; }
 
 // ─── REPORT ───────────────────────────────────────────────────────────────────
 
