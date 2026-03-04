@@ -1,16 +1,18 @@
 import React from 'react';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { ToastFn } from '../../types/compliance.types';
-import { FRAMEWORKS, INITIAL_DOCUMENTS, INITIAL_GAPS, RISK_HISTORY } from '../../constants/mockData';
+import { INITIAL_DOCUMENTS, INITIAL_GAPS, RISK_HISTORY } from '../../constants/mockData';
 import { SEV_COLORS, SEV_BG } from '../../constants/statusMaps';
-import { coveragePct } from '../../utils/complianceUtils';
 import { Icons } from '../../components/shared/Icons';
+import { useFrameworks } from '../../hooks/useFrameworks';
 
 interface RiskPageProps { toast: ToastFn; }
 
 const CURRENT_SCORE = 68;
 
 export function RiskPage({ toast }: RiskPageProps) {
+  const { frameworks } = useFrameworks();
+
   const riskLevel = CURRENT_SCORE < 40 ? 'HIGH' : CURRENT_SCORE < 70 ? 'MEDIUM' : 'LOW';
   const riskColor = { HIGH: '#EF4444', MEDIUM: '#F59E0B', LOW: '#22C55E' }[riskLevel];
   const pieData = [
@@ -82,12 +84,11 @@ export function RiskPage({ toast }: RiskPageProps) {
       </div>
 
       <div className="grid-2">
-        {/* Risk by Framework */}
+        {/* Risk by Framework — live from API */}
         <div className="card">
           <div className="card-title" style={{ marginBottom: 16 }}>Risk by Framework</div>
-          {FRAMEWORKS.map((fw) => {
-            const pct      = coveragePct(fw);
-            const riskScore = 100 - pct;
+          {frameworks.map((fw) => {
+            const riskScore = 100 - fw.coveragePercentage;
             const lvl       = riskScore > 60 ? 'CRITICAL' : riskScore > 30 ? 'MEDIUM' : 'LOW';
             return (
               <div key={fw.code} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
@@ -113,10 +114,10 @@ export function RiskPage({ toast }: RiskPageProps) {
         <div className="card">
           <div className="card-title" style={{ marginBottom: 16 }}>Risk Factors</div>
           {[
-            { label: 'Critical Gaps Open',       value: INITIAL_GAPS.filter((g) => g.severity === 'CRITICAL' && g.status !== 'resolved').length, max: 5, color: '#EF4444', impact: 'High Impact' },
-            { label: 'High Severity Gaps',        value: INITIAL_GAPS.filter((g) => g.severity === 'HIGH' && g.status !== 'resolved').length,     max: 8, color: '#F97316', impact: 'Medium Impact' },
-            { label: 'Documents Unanalyzed',      value: INITIAL_DOCUMENTS.filter((d) => d.status !== 'analyzed').length,                         max: 5, color: '#F59E0B', impact: 'Medium Impact' },
-            { label: 'Frameworks Below 70%',      value: FRAMEWORKS.filter((f) => coveragePct(f) < 70).length,                                    max: 4, color: '#7C3AED', impact: 'Low Impact' },
+            { label: 'Critical Gaps Open',   value: INITIAL_GAPS.filter((g) => g.severity === 'CRITICAL' && g.status !== 'resolved').length, max: 5, color: '#EF4444', impact: 'High Impact' },
+            { label: 'High Severity Gaps',   value: INITIAL_GAPS.filter((g) => g.severity === 'HIGH'     && g.status !== 'resolved').length, max: 8, color: '#F97316', impact: 'Medium Impact' },
+            { label: 'Documents Unanalyzed', value: INITIAL_DOCUMENTS.filter((d) => d.status !== 'analyzed').length,                         max: 5, color: '#F59E0B', impact: 'Medium Impact' },
+            { label: 'Frameworks Below 70%', value: frameworks.filter((f) => f.coveragePercentage < 70).length,                              max: 4, color: '#7C3AED', impact: 'Low Impact' },
           ].map((rf) => (
             <div key={rf.label} style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>

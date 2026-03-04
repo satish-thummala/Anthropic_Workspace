@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import type { ToastFn, ComplianceGap } from '../../types/compliance.types';
-import { INITIAL_GAPS, FRAMEWORKS } from '../../constants/mockData';
+import { INITIAL_GAPS } from '../../constants/mockData';
 import { SEV_COLORS, SEV_BG, STATUS_MAP } from '../../constants/statusMaps';
 import { Icons } from '../../components/shared/Icons';
+import { useFrameworks } from '../../hooks/useFrameworks';
 
 interface GapsPageProps { toast: ToastFn; }
 
 export function GapsPage({ toast }: GapsPageProps) {
-  const [gaps, setGaps]         = useState<ComplianceGap[]>(INITIAL_GAPS);
-  const [search, setSearch]     = useState('');
+  const { frameworks } = useFrameworks();
+  const [gaps, setGaps]           = useState<ComplianceGap[]>(INITIAL_GAPS);
+  const [search, setSearch]       = useState('');
   const [sevFilter, setSevFilter] = useState('all');
   const [fwFilter, setFwFilter]   = useState('all');
   const [analyzing, setAnalyzing] = useState(false);
@@ -79,7 +81,7 @@ export function GapsPage({ toast }: GapsPageProps) {
         </select>
         <select className="filter-select" value={fwFilter} onChange={(e) => setFwFilter(e.target.value)}>
           <option value="all">All Frameworks</option>
-          {FRAMEWORKS.map((f) => <option key={f.code} value={f.code}>{f.name}</option>)}
+          {frameworks.map((f) => <option key={f.code} value={f.code}>{f.name}</option>)}
         </select>
       </div>
 

@@ -1,23 +1,28 @@
 import React from 'react';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import type { ToastFn } from '../../types/compliance.types';
-import { FRAMEWORKS, INITIAL_DOCUMENTS, INITIAL_GAPS, RISK_HISTORY } from '../../constants/mockData';
-import { SEV_COLORS, SEV_BG, STATUS_MAP } from '../../constants/statusMaps';
-import { coveragePct, overallScore } from '../../utils/complianceUtils';
+import { INITIAL_DOCUMENTS, INITIAL_GAPS, RISK_HISTORY } from '../../constants/mockData';
+import { SEV_COLORS, SEV_BG } from '../../constants/statusMaps';
 import { Icons } from '../../components/shared/Icons';
+import { useFrameworks } from '../../hooks/useFrameworks';
 
-interface DashboardPageProps { toast: ToastFn; }
+interface Props { toast: ToastFn; }
 
-export function DashboardPage({ toast }: DashboardPageProps) {
-  const score    = overallScore();
-  const total    = FRAMEWORKS.reduce((a, f) => a + f.controls, 0);
-  const covered  = FRAMEWORKS.reduce((a, f) => a + f.covered, 0);
-  const openGaps = INITIAL_GAPS.filter((g) => g.status === 'open').length;
-  const critGaps = INITIAL_GAPS.filter((g) => g.severity === 'CRITICAL' && g.status !== 'resolved').length;
+export function DashboardPage({ toast }: Props) {
+  const { frameworks, loading } = useFrameworks();
+
+  const total   = frameworks.reduce((a, f) => a + f.totalControls,   0);
+  const covered = frameworks.reduce((a, f) => a + f.coveredControls, 0);
+  const score   = frameworks.length
+    ? Math.round(frameworks.reduce((a, f) => a + f.coveragePercentage, 0) / frameworks.length)
+    : 0;
+
+  const openGaps = INITIAL_GAPS.filter(g => g.status === 'open').length;
+  const critGaps = INITIAL_GAPS.filter(g => g.severity === 'CRITICAL' && g.status !== 'resolved').length;
 
   const pieData = [
-    { name: 'Covered', value: covered,         fill: '#3B82F6' },
-    { name: 'Gaps',    value: total - covered,  fill: '#E2E8F0' },
+    { name: 'Covered', value: covered,        fill: '#3B82F6' },
+    { name: 'Gaps',    value: total - covered, fill: '#E2E8F0' },
   ];
 
   return (
@@ -34,12 +39,12 @@ export function DashboardPage({ toast }: DashboardPageProps) {
 
       <div className="stats-grid">
         {[
-          { label: 'Overall Coverage',   value: `${score}%`,       Icon: Icons.Shield,        bg: '#EFF6FF', ic: '#1D4ED8', delta: '+6% this month',        up: true  },
-          { label: 'Controls Covered',   value: `${covered}/${total}`, Icon: Icons.Check,     bg: '#F0FDF4', ic: '#16A34A', delta: '+12 since last scan',    up: true  },
-          { label: 'Open Gaps',          value: String(openGaps),  Icon: Icons.AlertTriangle, bg: '#FFF7ED', ic: '#D97706', delta: `${critGaps} critical`,    up: false },
-          { label: 'Documents Ingested', value: String(INITIAL_DOCUMENTS.filter((d) => d.status === 'analyzed').length),
-                                                                    Icon: Icons.Document,      bg: '#F5F3FF', ic: '#7C3AED', delta: `${INITIAL_DOCUMENTS.length} total uploaded`, up: true },
-        ].map((s) => (
+          { label: 'Overall Coverage',   value: loading ? '…' : `${score}%`,          Icon: Icons.Shield,        bg: '#EFF6FF', ic: '#1D4ED8', delta: '+6% this month',                        up: true  },
+          { label: 'Controls Covered',   value: loading ? '…' : `${covered}/${total}`, Icon: Icons.Check,         bg: '#F0FDF4', ic: '#16A34A', delta: '+12 since last scan',                   up: true  },
+          { label: 'Open Gaps',          value: String(openGaps),                      Icon: Icons.AlertTriangle, bg: '#FFF7ED', ic: '#D97706', delta: `${critGaps} critical`,                   up: false },
+          { label: 'Documents Ingested', value: String(INITIAL_DOCUMENTS.filter(d => d.status === 'analyzed').length),
+                                                                                        Icon: Icons.Document,      bg: '#F5F3FF', ic: '#7C3AED', delta: `${INITIAL_DOCUMENTS.length} total uploaded`, up: true },
+        ].map(s => (
           <div key={s.label} className="stat-card">
             <div className="stat-icon" style={{ background: s.bg }}>
               <s.Icon style={{ width: 18, height: 18, color: s.ic }} />
@@ -54,7 +59,7 @@ export function DashboardPage({ toast }: DashboardPageProps) {
       </div>
 
       <div className="grid-2 section-gap">
-        {/* Framework Coverage Card */}
+        {/* Framework Coverage card */}
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
@@ -67,24 +72,27 @@ export function DashboardPage({ toast }: DashboardPageProps) {
               </Pie>
             </PieChart>
           </div>
-          {FRAMEWORKS.map((fw) => (
+
+          {loading && <div style={{ color: 'var(--text3)', fontSize: 13 }}>Loading…</div>}
+
+          {frameworks.map(fw => (
             <div key={fw.code} className="coverage-bar-wrap">
               <div className="coverage-bar-header">
                 <span className="coverage-bar-name">{fw.name}</span>
-                <span className="coverage-bar-pct" style={{ color: fw.color }}>{coveragePct(fw)}%</span>
+                <span className="coverage-bar-pct" style={{ color: fw.color }}>{fw.coveragePercentage}%</span>
               </div>
               <div className="coverage-bar-track">
-                <div className="coverage-bar-fill" style={{ width: `${coveragePct(fw)}%`, background: fw.color }} />
+                <div className="coverage-bar-fill" style={{ width: `${fw.coveragePercentage}%`, background: fw.color }} />
               </div>
               <div className="coverage-bar-meta">
-                <span>{fw.covered} of {fw.controls} controls</span>
-                <span>{fw.controls - fw.covered} gaps</span>
+                <span>{fw.coveredControls} of {fw.totalControls} controls</span>
+                <span>{fw.totalControls - fw.coveredControls} gaps</span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Risk Trend + Priority Gaps */}
+        {/* Risk trend + Priority gaps */}
         <div className="card">
           <div className="card-title" style={{ marginBottom: 4 }}>Risk Score Trend</div>
           <div className="card-desc" style={{ marginBottom: 20 }}>Maturity score progression over 7 months</div>
@@ -107,7 +115,7 @@ export function DashboardPage({ toast }: DashboardPageProps) {
 
           <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
             <div className="card-title" style={{ marginBottom: 12 }}>Top Priority Gaps</div>
-            {INITIAL_GAPS.filter((g) => g.severity === 'CRITICAL' && g.status !== 'resolved').slice(0, 2).map((g) => (
+            {INITIAL_GAPS.filter(g => g.severity === 'CRITICAL' && g.status !== 'resolved').slice(0, 2).map(g => (
               <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                 <Icons.AlertTriangle style={{ width: 15, height: 15, color: SEV_COLORS[g.severity], flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
