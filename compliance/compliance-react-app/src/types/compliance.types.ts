@@ -223,3 +223,52 @@ export interface ApiFrameworkGapCount {
   open:           number;
   critical:       number;
 }
+
+// ─── RISK API SHAPES (Spring Boot /api/v1/risk responses) ────────────────────
+
+export interface ApiFrameworkRiskEntry {
+  code:               string;
+  name:               string;
+  color:              string;
+  coveragePercentage: number;
+  riskScore:          number;   // 100 - coveragePercentage
+  riskLevel:          string;   // LOW | MEDIUM | HIGH | CRITICAL
+  openGaps:           number;
+  criticalGaps:       number;
+}
+
+export interface ApiRiskScore {
+  score:               number;
+  riskLevel:           string;   // LOW | MEDIUM | HIGH | CRITICAL
+  maturityLabel:       string;   // Initial | Developing | Establishing | Established | Optimizing
+  maturityDescription: string;
+  // Gap factors
+  criticalGaps:        number;
+  highGaps:            number;
+  mediumGaps:          number;
+  lowGaps:             number;
+  // Coverage
+  totalControls:       number;
+  coveredControls:     number;
+  coveragePercentage:  number;
+  frameworksBelow70:   number;
+  // Breakdown
+  byFramework:         ApiFrameworkRiskEntry[];
+  calculatedAt:        string;
+}
+
+export interface ApiRiskHistoryPoint {
+  month:        string;   // "Aug", "Sep" etc — X-axis label
+  score:        number;
+  riskLevel:    string;
+  maturityLabel: string;
+  calculatedAt: string;
+}
+
+export interface ApiRiskHistory {
+  history:      ApiRiskHistoryPoint[];
+  currentScore: number;
+  firstScore:   number;
+  improvement:  number;
+  period:       string;   // e.g. "7 months"
+}
