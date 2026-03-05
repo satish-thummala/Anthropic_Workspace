@@ -1,8 +1,7 @@
-import apiClient from './api-client';
-import type { ApiGap, ApiGapStats } from '../types/compliance.types';
+import apiClient from "./api-client";
+import type { ApiGap, ApiGapStats } from "../types/compliance.types";
 
 export const gapAPI = {
-
   /**
    * GET /api/v1/gaps
    * All gaps with optional filters (all combinable):
@@ -10,11 +9,13 @@ export const gapAPI = {
    */
   getAll: async (filters?: {
     framework?: string;
-    status?:    string;
-    severity?:  string;
-    keyword?:   string;
+    status?: string;
+    severity?: string;
+    keyword?: string;
   }): Promise<ApiGap[]> => {
-    const { data } = await apiClient.get<ApiGap[]>('/gaps', { params: filters });
+    const { data } = await apiClient.get<ApiGap[]>("/gaps", {
+      params: filters,
+    });
     return data;
   },
 
@@ -23,7 +24,7 @@ export const gapAPI = {
    * Severity counters + per-framework breakdown for the stat cards.
    */
   getStats: async (): Promise<ApiGapStats> => {
-    const { data } = await apiClient.get<ApiGapStats>('/gaps/stats');
+    const { data } = await apiClient.get<ApiGapStats>("/gaps/stats");
     return data;
   },
 
@@ -43,7 +44,7 @@ export const gapAPI = {
   updateStatus: async (
     id: string,
     status: string,
-    remediationNotes?: string
+    remediationNotes?: string,
   ): Promise<ApiGap> => {
     const { data } = await apiClient.patch<ApiGap>(`/gaps/${id}/status`, {
       status,
@@ -56,10 +57,35 @@ export const gapAPI = {
    * PATCH /api/v1/gaps/:id/notes
    * Save remediation notes without changing status.
    */
-  updateNotes: async (id: string, remediationNotes: string): Promise<ApiGap> => {
+  updateNotes: async (
+    id: string,
+    remediationNotes: string,
+  ): Promise<ApiGap> => {
     const { data } = await apiClient.patch<ApiGap>(`/gaps/${id}/notes`, {
       remediationNotes,
     });
     return data;
   },
+
+  /**
+   * POST /api/v1/gaps/analyze
+   * Runs comprehensive gap analysis
+   */
+  runAnalysis: async (): Promise<GapAnalysisResult> => {
+    const { data } = await apiClient.post<GapAnalysisResult>("/gaps/analyze");
+    return data;
+  },
 };
+
+// Add this interface
+export interface GapAnalysisResult {
+  totalControlsScanned: number;
+  newGapsCreated: number;
+  existingGaps: number;
+  totalActiveGaps: number;
+  gapsByFramework: Record<string, number>;
+  gapsBySeverity: Record<string, number>;
+  analysisTimeMs: number;
+  message: string;
+  newGaps: ApiGap[];
+}

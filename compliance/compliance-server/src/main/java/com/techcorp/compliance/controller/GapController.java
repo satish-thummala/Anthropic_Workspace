@@ -108,4 +108,27 @@ public class GapController {
             @RequestBody UpdateNotesRequest request) {
         return ResponseEntity.ok(gapService.updateNotes(id, request));
     }
+
+    // ── POST /api/v1/gaps/analyze ──────────────────────────────────────────────
+    /**
+     * Runs comprehensive gap analysis across all frameworks.
+     * Scans for uncovered controls and creates new gap records.
+     * 
+     * React: "Run Gap Analysis" button in GapsPage header
+     * 
+     * Response includes:
+     * - Total controls scanned
+     * - New gaps created vs existing
+     * - Breakdown by framework and severity
+     * - List of newly identified gaps
+     * - Human-readable summary message
+     */
+    @PostMapping("/analyze")
+    public ResponseEntity<GapAnalysisResult> runAnalysis() {
+        log.info("POST /gaps/analyze - Running gap analysis...");
+        GapAnalysisResult result = gapService.runAnalysis();
+        log.info("Gap analysis complete: {} new gaps, {} total active",
+                result.getNewGapsCreated(), result.getTotalActiveGaps());
+        return ResponseEntity.ok(result);
+    }
 }

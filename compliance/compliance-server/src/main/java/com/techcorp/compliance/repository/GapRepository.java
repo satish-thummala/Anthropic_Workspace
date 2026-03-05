@@ -148,4 +148,64 @@ public interface GapRepository extends JpaRepository<Gap, String> {
           AND g.status <> com.techcorp.compliance.entity.Gap$GapStatus.accepted_risk
         """)
     List<Gap> findActiveByControlId(@Param("controlId") String controlId);
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // ADDED FOR GAP ANALYSIS - RUN ANALYSIS FEATURE
+    // ────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Find all gaps EXCEPT the specified status.
+     * Used by gap analysis to get all active gaps (non-resolved).
+     * 
+     * Example: findByStatusNot(GapStatus.resolved) returns all active gaps
+     */
+    @Query("""
+        SELECT g FROM Gap g
+        JOIN FETCH g.control c
+        JOIN FETCH g.framework f
+        LEFT JOIN FETCH g.assignedTo u
+        WHERE g.status <> :excludedStatus
+        ORDER BY
+            CASE g.severity
+                WHEN 'CRITICAL' THEN 1
+                WHEN 'HIGH'     THEN 2
+                WHEN 'MEDIUM'   THEN 3
+                WHEN 'LOW'      THEN 4
+                ELSE 5
+            END ASC,
+            g.identifiedAt DESC
+        """)
+    List<Gap> findByStatusNot(@Param("excludedStatus") GapStatus excludedStatus);
+
+    /**
+     * Count gaps excluding a specific status.
+     * Quick count without loading full entities.
+     */
+    long countByStatusNot(GapStatus excludedStatus);
+
+    /**
+     * Alternative: Get all active gaps explicitly.
+     * More readable than findByStatusNot for active gap queries.
+     */
+    @Query("""
+        SELECT g FROM Gap g
+        JOIN FETCH g.control c
+        JOIN FETCH g.framework f
+        LEFT JOIN FETCH g.assignedTo u
+        WHERE g.status IN (
+            com.techcorp.compliance.entity.Gap$GapStatus.open,
+            com.techcorp.compliance.entity.Gap$GapStatus.in_progress,
+            com.techcorp.compliance.entity.Gap$GapStatus.accepted_risk
+        )
+        ORDER BY
+            CASE g.severity
+                WHEN 'CRITICAL' THEN 1
+                WHEN 'HIGH'     THEN 2
+                WHEN 'MEDIUM'   THEN 3
+                WHEN 'LOW'      THEN 4
+                ELSE 5
+            END ASC,
+            g.identifiedAt DESC
+        """)
+    List<Gap> findAllActive();
 }

@@ -46,4 +46,33 @@ public interface ControlRepository extends JpaRepository<Control, String> {
         ORDER BY c.displayOrder ASC
         """)
     List<Control> searchByKeyword(@Param("frameworkId") String frameworkId, @Param("kw") String kw);
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // ADDED FOR GAP ANALYSIS
+    // ────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Find all controls that are NOT covered.
+     * Used by gap analysis to identify potential gaps.
+     */
+    List<Control> findByIsCoveredFalse();
+
+    /**
+     * Find all controls that ARE covered.
+     * Useful for coverage reports.
+     */
+    List<Control> findByIsCoveredTrue();
+
+    /**
+     * Count uncovered controls across all frameworks.
+     * Quick check before running analysis.
+     */
+    long countByIsCoveredFalse();
+
+    /**
+     * Find uncovered controls for a specific framework.
+     * For framework-specific gap analysis.
+     */
+    @Query("SELECT c FROM Control c WHERE c.isCovered = false AND c.framework.id = :frameworkId")
+    List<Control> findUncoveredByFrameworkId(@Param("frameworkId") String frameworkId);
 }

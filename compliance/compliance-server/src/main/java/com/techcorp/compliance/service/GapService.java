@@ -3,6 +3,7 @@ package com.techcorp.compliance.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.techcorp.compliance.dto.GapDTOs.*;
+import com.techcorp.compliance.entity.Control;
 import com.techcorp.compliance.entity.Control.Severity;
 import com.techcorp.compliance.entity.Gap;
 import com.techcorp.compliance.entity.Gap.GapStatus;
@@ -17,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -316,4 +319,168 @@ public class GapService {
                 .evidenceRequired(fromJson(g.getEvidenceRequired()))
                 .build();
     }
+
+    /**
+     * POST /api/v1/gaps/analyze
+     * Runs a comprehensive gap analysis:
+     * 1. Identifies all controls with is_covered = false
+     * 2. Creates new gap records for any that don't have active gaps
+     * 3. Returns analysis summary with counts and newly identified gaps
+     *
+     * This is the backend for the "Run Gap Analysis" button in React.
+     */
+    @Transactional
+    public GapAnalysisResult runAnalysis() {
+        log.info("Starting gap analysis...");
+
+        long startTime = System.currentTimeMillis();
+
+        // 1. Find all uncovered controls
+        List<Control> uncoveredControls = controlRepo.findByIsCoveredFalse();
+
+        // 2. Track new gaps created
+        int newGapsCreated = 0;
+        int existingGaps = 0;
+        List<Gap> newlyIdentifiedGaps = new ArrayList<>();
+
+        for (Control control : uncoveredControls) {
+            // Check if an active gap already exists for this control
+            boolean hasActiveGap = gapRepo.existsByControlIdAndStatusNot(
+                    control.getId(),
+                    GapStatus.resolved);
+
+            if (hasActiveGap) {
+                existingGaps++;
+                continue;
+            }
+
+            // Create new gap
+            Gap gap = Gap.builder()
+                    .control(control)
+                    .framework(control.getFramework())
+                    .severity(control.getSeverity())
+                    .gapType(Gap.GapType.missing_control)
+                    .status(GapStatus.open)
+                    .description(buildGapDescription(control))
+                    .aiSuggestion(buildAiSuggestion(control))
+                    .evidenceRequired(control.getEvidenceRequired())
+                    .build();
+
+            gapRepo.save(gap);
+            newlyIdentifiedGaps.add(gap);
+            newGapsCreated++;
+
+            log.info("Created gap for {}/{} - {}",
+                    control.getFramework().getCode(),
+                    control.getCode(),
+                    control.getTitle());
+        }
+
+        // 3. Calculate statistics
+        List<Gap> allActiveGaps = gapRepo.findByStatusNot(GapStatus.resolved);
+
+        Map<String, Long> byFramework = allActiveGaps.stream()
+                .collect(Collectors.groupingBy(
+                        g -> g.getFramework().getCode(),
+                        Collectors.counting()));
+
+        Map<String, Long> bySeverity = allActiveGaps.stream()
+                .collect(Collectors.groupingBy(
+                        g -> g.getSeverity().name(),
+                        Collectors.counting()));
+
+        long duration = System.currentTimeMillis() - startTime;
+
+        log.info("Gap analysis completed: {} new gaps created, {} existing, {} total active ({}ms)",
+                newGapsCreated, existingGaps, allActiveGaps.size(), duration);
+
+        // 4. Build result
+        return GapAnalysisResult.builder()
+                .totalControlsScanned(uncoveredControls.size())
+                .newGapsCreated(newGapsCreated)
+                .existingGaps(existingGaps)
+                .totalActiveGaps(allActiveGaps.size())
+                .gapsByFramework(byFramework)
+                .gapsBySeverity(bySeverity)
+                .analysisTimeMs(duration)
+                .newGaps(newlyIdentifiedGaps.stream()
+                        .map(this::toResponse)
+                        .collect(Collectors.toList()))
+                .message(buildAnalysisMessage(newGapsCreated, existingGaps, allActiveGaps.size()))
+                .build();
+    }
+
+    /**
+     * Helper: Generates a descriptive gap description
+     */
+    private String buildGapDescription(Control control) {
+        StringBuilder desc = new StringBuilder();
+        desc.append("Control \"").append(control.getTitle()).append("\" is not currently covered. ");
+
+        if (control.getDescription() != null && !control.getDescription().isBlank()) {
+            desc.append(control.getDescription());
+        }
+
+        return desc.toString().trim();
+    }
+
+    /**
+     * Helper: Generates AI-powered remediation suggestion
+     */
+    private String buildAiSuggestion(Control control) {
+        if (control.getImplementationGuidance() != null &&
+                !control.getImplementationGuidance().isBlank()) {
+            return control.getImplementationGuidance();
+        }
+
+        // Generic suggestions based on control category
+        String category = control.getCategory();
+        if (category != null) {
+            if (category.contains("Physical")) {
+                return "Implement physical security controls including access restrictions, monitoring, and environmental protections. Document procedures and maintain access logs.";
+            } else if (category.contains("Technical") || category.contains("Technological")) {
+                return "Deploy technical security controls such as access management, encryption, monitoring, and logging. Ensure controls are properly configured and tested.";
+            } else if (category.contains("Administrative") || category.contains("Organizational")) {
+                return "Establish and document policies and procedures. Ensure management approval, staff training, and regular reviews are conducted.";
+            } else if (category.contains("People") || category.contains("Personnel")) {
+                return "Implement personnel security measures including background checks, training programs, and access reviews. Document all procedures and maintain records.";
+            }
+        }
+
+        // Severity-based suggestion
+        switch (control.getSeverity()) {
+            case CRITICAL:
+                return "URGENT: This critical control must be addressed immediately. Review requirements, allocate resources, and implement with priority. Document all steps and evidence.";
+            case HIGH:
+                return "High priority remediation required. Review control requirements, develop implementation plan, and execute within target timeframe. Maintain comprehensive evidence.";
+            case MEDIUM:
+                return "Review control requirements and develop remediation plan. Implement controls according to organizational schedule and document evidence of compliance.";
+            case LOW:
+                return "Review control requirements at next planning cycle. Consider implementation as part of continuous improvement program.";
+            default:
+                return "Review and implement the control requirements according to the framework specification. Maintain evidence of implementation.";
+        }
+    }
+
+    /**
+     * Helper: Generates human-readable analysis summary message
+     */
+    private String buildAnalysisMessage(int newGaps, int existing, int total) {
+        if (newGaps == 0 && existing == 0) {
+            return "✓ Gap analysis complete: No gaps identified. All controls are covered!";
+        }
+
+        if (newGaps == 0) {
+            return String.format("Gap analysis complete: %d active gap%s (no new gaps identified)",
+                    total, total == 1 ? "" : "s");
+        }
+
+        if (newGaps == 1) {
+            return String.format("Gap analysis complete: 1 new gap identified (%d total active)", total);
+        }
+
+        return String.format("Gap analysis complete: %d new gaps identified (%d existing, %d total active)",
+                newGaps, existing, total);
+    }
+
 }

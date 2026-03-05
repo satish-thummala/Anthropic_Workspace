@@ -6,6 +6,7 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import com.techcorp.compliance.dto.GapDTOs.GapResponse;
 
@@ -120,4 +121,24 @@ public class GapDTOs {
         private String remediationNotes;
     }
 
+    /**
+     * Response DTO for POST /api/v1/gaps/analyze
+     * Returns comprehensive analysis results including newly created gaps
+     */
+    @Data
+    @Builder
+    public static class GapAnalysisResult {
+        private int totalControlsScanned; // Total uncovered controls found
+        private int newGapsCreated; // New gap records created
+        private int existingGaps; // Gaps that already existed
+        private int totalActiveGaps; // Total active (non-resolved) gaps
+
+        private Map<String, Long> gapsByFramework; // e.g., {"ISO27001": 5, "SOC2": 3}
+        private Map<String, Long> gapsBySeverity; // e.g., {"CRITICAL": 2, "HIGH": 4}
+
+        private long analysisTimeMs; // Time taken for analysis
+        private String message; // Human-readable summary
+
+        private List<GapResponse> newGaps; // Details of newly created gaps
+    }
 }
