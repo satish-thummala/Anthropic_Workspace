@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { frameworkAPI } from '../services/framework-api';
 import type { ApiFrameworkSummary, ApiFrameworkDetail, ApiControl } from '../types/compliance.types';
 
-// ─── useFrameworks — fetch all framework summaries ────────────────────────────
+// ─── useFrameworks ────────────────────────────────────────────────────────────
 
 export function useFrameworks() {
   const [frameworks, setFrameworks] = useState<ApiFrameworkSummary[]>([]);
@@ -24,10 +24,10 @@ export function useFrameworks() {
 
   useEffect(() => { load(); }, [load]);
 
-  return { frameworks, loading, error, reload: load };
+  return { frameworks, setFrameworks, loading, error, reload: load };
 }
 
-// ─── useFrameworkDetail — fetch single framework with controls ─────────────────
+// ─── useFrameworkDetail ───────────────────────────────────────────────────────
 
 export function useFrameworkDetail(code: string | null) {
   const [detail,  setDetail]  = useState<ApiFrameworkDetail | null>(null);
@@ -52,11 +52,11 @@ export function useFrameworkDetail(code: string | null) {
     else setDetail(null);
   }, [code, load]);
 
-  // After toggling coverage update the local control without a full refetch
+  // Patch a single control in local state after coverage toggle
   const updateControlLocally = useCallback((updated: ApiControl) => {
     setDetail(prev => {
       if (!prev) return prev;
-      const controls = prev.controls.map(c => c.id === updated.id ? updated : c);
+      const controls     = prev.controls.map(c => c.id === updated.id ? updated : c);
       const coveredCount = controls.filter(c => c.isCovered).length;
       return {
         ...prev,

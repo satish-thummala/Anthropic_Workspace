@@ -35,6 +35,10 @@ public class DocumentMappingService {
     private final FrameworkRepository frameworkRepo;
     private final FrameworkService    frameworkService;
 
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.techcorp.compliance.service.GapService gapService;
+
     // ── Minimum fraction of control keywords that must match a document ────────
     private static final double THRESHOLD = 0.25;
 
@@ -104,6 +108,8 @@ public class DocumentMappingService {
                     ctrl.setCovered(true);
                     controlRepo.save(ctrl);
                     newlyCovered++;
+                    // Resolve any open gaps for this control — keeps gap table in sync
+                    gapService.resolveGapsForControl(ctrl.getId());
                     log.debug("Covered: {}/{}", ctrl.getFramework().getCode(), ctrl.getCode());
                 } else {
                     alreadyCovered++;

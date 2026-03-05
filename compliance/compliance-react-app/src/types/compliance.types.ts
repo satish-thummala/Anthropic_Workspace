@@ -10,9 +10,11 @@ export interface User {
   avatar:        string;
 }
 
-export interface UserWithPassword extends User { password: string; }
+export interface UserWithPassword extends User {
+  password: string;
+}
 
-// ─── FRAMEWORK  (UI card shape) ───────────────────────────────────────────────
+// ─── FRAMEWORK  (local UI shape) ──────────────────────────────────────────────
 
 export interface Framework {
   code:        string;
@@ -24,7 +26,7 @@ export interface Framework {
   description: string;
 }
 
-// ─── API SHAPES (Spring Boot responses) ──────────────────────────────────────
+// ─── FRAMEWORK API SHAPES (exact Spring Boot responses) ──────────────────────
 
 export interface ApiFrameworkSummary {
   id:                 string;
@@ -75,6 +77,7 @@ export interface ApiFrameworkDetail extends ApiFrameworkSummary {
   controls:      ApiControl[];
 }
 
+/** Map API summary → UI Framework shape (for components that use Framework) */
 export function apiToFramework(a: ApiFrameworkSummary): Framework {
   return {
     code:        a.code,
@@ -87,7 +90,7 @@ export function apiToFramework(a: ApiFrameworkSummary): Framework {
   };
 }
 
-// ─── MAPPING RESULT  (POST /api/v1/frameworks/map-all) ────────────────────────
+// ─── MAPPING RESULT ───────────────────────────────────────────────────────────
 
 export interface MappingResult {
   documentsProcessed:     number;
@@ -131,7 +134,10 @@ export interface ComplianceGap {
 
 // ─── RISK ─────────────────────────────────────────────────────────────────────
 
-export interface RiskHistoryPoint { month: string; score: number; }
+export interface RiskHistoryPoint {
+  month: string;
+  score: number;
+}
 
 // ─── REPORT ───────────────────────────────────────────────────────────────────
 
@@ -158,3 +164,62 @@ export interface ToastMessage {
 }
 
 export type ToastFn = (msg: string, type?: ToastMessage['type']) => void;
+
+// ─── API GAP SHAPES (Spring Boot /api/v1/gaps responses) ─────────────────────
+
+export type ApiGapStatus = 'open' | 'in_progress' | 'resolved' | 'accepted_risk';
+
+export interface ApiGap {
+  id:               string;
+  // Control
+  controlId:        string;
+  controlCode:      string;
+  controlTitle:     string;
+  controlCategory:  string | null;
+  // Framework
+  frameworkId:      string;
+  frameworkCode:    string;
+  frameworkName:    string;
+  frameworkColor:   string;
+  // Gap core
+  gapType:          string;
+  severity:         GapSeverity;
+  status:           ApiGapStatus;
+  description:      string | null;
+  aiSuggestion:     string | null;
+  remediationNotes: string | null;
+  priority:         number;
+  // Assignment
+  assignedToId:     number | null;
+  assignedToName:   string | null;
+  assignedToEmail:  string | null;
+  // Timeline
+  identifiedAt:     string;
+  assignedAt:       string | null;
+  startedAt:        string | null;
+  resolvedAt:       string | null;
+  targetDate:       string | null;
+  // Metadata
+  evidenceRequired: string[];
+}
+
+export interface ApiGapStats {
+  totalOpen:         number;
+  totalInProgress:   number;
+  totalResolved:     number;
+  totalAcceptedRisk: number;
+  critical:          number;
+  high:              number;
+  medium:            number;
+  low:               number;
+  byFramework:       ApiFrameworkGapCount[];
+}
+
+export interface ApiFrameworkGapCount {
+  frameworkCode:  string;
+  frameworkName:  string;
+  frameworkColor: string;
+  total:          number;
+  open:           number;
+  critical:       number;
+}

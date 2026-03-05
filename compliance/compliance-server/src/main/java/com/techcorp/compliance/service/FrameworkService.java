@@ -25,6 +25,11 @@ public class FrameworkService {
     private final ControlRepository   controlRepo;
     private final ObjectMapper         mapper;
 
+    // Injected lazily to avoid circular dependency (GapService → ControlRepo, FrameworkService → GapService)
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.techcorp.compliance.service.GapService gapService;
+
     // ─────────────────────────────────────────────────────────────────────────
     // FRAMEWORK OPERATIONS
     // ─────────────────────────────────────────────────────────────────────────
@@ -177,10 +182,19 @@ public class FrameworkService {
     @Transactional
     public ControlResponse updateCoverage(String controlId, boolean isCovered) {
         Control c = findControl(controlId);
+        boolean wasCovered = c.isCovered();
         c.setCovered(isCovered);
         controlRepo.save(c);
         refreshStats(c.getFramework());
         log.info("Coverage updated: {} → {}", c.getCode(), isCovered);
+
+        // Sync gap table: resolve gaps when covered, open gap when uncovered
+        if (isCovered && !wasCovered) {
+            gapService.resolveGapsForControl(controlId);
+        } else if (!isCovered && wasCovered) {
+            gapService.openGapForControl(controlId);
+        }
+
         return toControlResponse(c);
     }
 
@@ -191,6 +205,104 @@ public class FrameworkService {
         controlRepo.delete(c);
         refreshStats(fw);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MAP ALL DOCUMENTS  (Option B — rule-based simulation)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Simulates running all documents against all framework controls.
+     *
+     * Mapping rules (deterministic, not random):
+     *  - Each simulated document covers a realistic set of framework codes
+     *  - For each framework a document covers, uncovered controls are marked
+     *    covered based on severity:
+     *      LOW    → always mark covered
+     *      MEDIUM → always mark covered
+     *      HIGH   → mark covered if displayOrder is even
+     *      CRITICAL → never auto-covered (requires manual review)
+     *
+     * Can be swapped for real NLP/embedding analysis later without changing
+     * the API contract.
+     */
+    @Transactional
+    public MappingResult mapAllDocuments() {
+        log.info("Starting document→framework mapping simulation…");
+
+        List<SimDocument> documents = List.of(
+            new SimDocument("Information Security Policy",  List.of("ISO27001", "SOC2")),
+            new SimDocument("Data Protection Policy",       List.of("GDPR", "ISO27001")),
+            new SimDocument("HR Employee Handbook",         List.of("ISO27001")),
+            new SimDocument("IT Security Procedures",       List.of("ISO27001", "HIPAA", "SOC2")),
+            new SimDocument("Business Continuity Plan",     List.of("SOC2", "ISO27001"))
+        );
+
+        Set<String> affectedCodes   = new LinkedHashSet<>();
+        int totalUpdated            = 0;
+        int totalAlreadyCovered     = 0;
+
+        for (SimDocument doc : documents) {
+            log.debug("  Processing: {}", doc.name());
+            for (String fwCode : doc.frameworkCodes()) {
+                Optional<Framework> fwOpt = frameworkRepo.findByCode(fwCode);
+                if (fwOpt.isEmpty()) continue;
+
+                Framework fw = fwOpt.get();
+                List<Control> controls = controlRepo.findByFrameworkIdOrderByDisplayOrderAsc(fw.getId());
+
+                for (Control ctrl : controls) {
+                    if (ctrl.isCovered()) { totalAlreadyCovered++; continue; }
+
+                    boolean shouldCover = switch (ctrl.getSeverity()) {
+                        case LOW      -> true;
+                        case MEDIUM   -> true;
+                        case HIGH     -> ctrl.getDisplayOrder() != null && ctrl.getDisplayOrder() % 2 == 0;
+                        case CRITICAL -> false;
+                    };
+
+                    if (shouldCover) {
+                        ctrl.setCovered(true);
+                        controlRepo.save(ctrl);
+                        totalUpdated++;
+                        affectedCodes.add(fwCode);
+                    }
+                }
+            }
+        }
+
+        // Refresh stats on affected frameworks, collect updated summaries
+        List<FrameworkSummary> updatedSummaries = new ArrayList<>();
+        for (String code : affectedCodes) {
+            frameworkRepo.findByCode(code).ifPresent(fw -> {
+                refreshStats(fw);
+                updatedSummaries.add(toSummary(fw));
+            });
+        }
+        // Add any untouched frameworks so the frontend gets all 4 cards
+        frameworkRepo.findAllActiveOrderByCode().forEach(fw -> {
+            if (updatedSummaries.stream().noneMatch(s -> s.getCode().equals(fw.getCode())))
+                updatedSummaries.add(toSummary(fw));
+        });
+
+        String msg = String.format(
+            "Mapped %d documents — %d controls updated across %d framework%s",
+            documents.size(), totalUpdated,
+            affectedCodes.size(), affectedCodes.size() == 1 ? "" : "s"
+        );
+        log.info("Mapping complete: {}", msg);
+
+        return MappingResult.builder()
+                .documentsProcessed(documents.size())
+                .controlsUpdated(totalUpdated)
+                .controlsAlreadyCovered(totalAlreadyCovered)
+                .frameworksAffected(new ArrayList<>(affectedCodes))
+                .updatedFrameworks(updatedSummaries)
+                .summary(msg)
+                .build();
+    }
+
+    private record SimDocument(String name, List<String> frameworkCodes) {}
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // PRIVATE HELPERS

@@ -1,53 +1,71 @@
 import React, { useState, useMemo } from 'react';
-import type {
-  ToastFn,
-  ApiFrameworkDetail,
-  ApiFrameworkSummary,
-  ApiControl,
-  MappingResult,
-} from '../../types/compliance.types';
+import type { ToastFn, ApiFrameworkDetail, ApiFrameworkSummary, ApiControl } from '../../types/compliance.types';
 import { useFrameworks, useFrameworkDetail } from '../../hooks/useFrameworks';
-import { frameworkAPI } from '../../services/framework-api';
+import { frameworkAPI, mapAllDocuments } from '../../services/framework-api';
+import type { MappingResult } from '../../services/framework-api';
 import { SEV_COLORS, SEV_BG } from '../../constants/statusMaps';
 import { Icons } from '../../components/shared/Icons';
 
 interface Props { toast: ToastFn; }
 
-// ─── MAPPING RESULT BANNER ────────────────────────────────────────────────────
+// ─── MAPPING PROGRESS MODAL ───────────────────────────────────────────────────
 
-function MappingBanner({ result, onDismiss }: { result: MappingResult; onDismiss: () => void }) {
-  const isFullyCovered = result.controlsUpdated === 0;
+function MappingModal({ result }: { result: MappingResult }) {
   return (
     <div style={{
-      background: isFullyCovered ? '#EFF6FF' : '#F0FDF4',
-      border: `1.5px solid ${isFullyCovered ? '#BFDBFE' : '#BBF7D0'}`,
-      borderRadius: 12, padding: '14px 18px', marginBottom: 24,
-      display: 'flex', gap: 14, alignItems: 'flex-start',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }}>
       <div style={{
-        width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-        background: isFullyCovered ? '#DBEAFE' : '#D1FAE5',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--surface)', borderRadius: 16, padding: 32, width: 480,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)', border: '1px solid var(--border)',
       }}>
-        <Icons.Check style={{ width: 16, height: 16, color: isFullyCovered ? '#2563EB' : '#059669' }} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: isFullyCovered ? '#1E3A8A' : '#065F46', marginBottom: 6 }}>
-          {result.message}
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icons.Check style={{ width: 20, height: 20, color: '#059669' }} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Mapping Complete</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)' }}>All documents processed successfully</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 12, color: isFullyCovered ? '#1D4ED8' : '#047857' }}>
-          <span>📄 {result.documentsProcessed} documents scanned</span>
-          {result.controlsUpdated > 0 && <span>✅ {result.controlsUpdated} newly covered</span>}
-          <span>🔒 {result.controlsAlreadyCovered} already covered</span>
-          {result.frameworksAffected.length > 0 && (
-            <span>📋 {result.frameworksAffected.join(', ')}</span>
-          )}
+
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+          {[
+            { label: 'Documents',        value: result.documentsProcessed, color: '#3B82F6', bg: '#EFF6FF' },
+            { label: 'Controls Updated', value: result.controlsUpdated,    color: '#059669', bg: '#D1FAE5' },
+            { label: 'Already Covered',  value: result.controlsAlreadyCovered, color: '#6B7280', bg: '#F3F4F6' },
+          ].map(s => (
+            <div key={s.label} style={{ textAlign: 'center', padding: '14px 8px', background: s.bg, borderRadius: 10 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Frameworks affected */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>FRAMEWORKS UPDATED</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {result.frameworksAffected.map(code => (
+              <span key={code} style={{
+                padding: '4px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600,
+                background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)',
+              }}>{code}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Summary message */}
+        <div style={{
+          padding: '12px 16px', background: 'var(--surface2)', borderRadius: 8,
+          border: '1px solid var(--border)', fontSize: 13, color: 'var(--text2)',
+        }}>
+          {result.summary}
         </div>
       </div>
-      <button onClick={onDismiss} style={{
-        background: 'none', border: 'none', cursor: 'pointer',
-        color: '#9CA3AF', fontSize: 20, lineHeight: 1, padding: '0 2px',
-      }}>×</button>
     </div>
   );
 }
@@ -59,7 +77,7 @@ function FrameworkDetailView({
 }: {
   detail: ApiFrameworkDetail;
   onBack: () => void;
-  onCoverageToggle: (ctrl: ApiControl) => void;
+  onCoverageToggle: (control: ApiControl) => void;
   toast: ToastFn;
 }) {
   const [search,     setSearch]   = useState('');
@@ -75,19 +93,19 @@ function FrameworkDetailView({
 
   const filtered = useMemo(() => detail.controls.filter(c => {
     if (search    && !`${c.code} ${c.title}`.toLowerCase().includes(search.toLowerCase())) return false;
-    if (catFilter && c.category !== catFilter) return false;
-    if (sevFilter && c.severity !== sevFilter) return false;
+    if (catFilter && c.category !== catFilter)  return false;
+    if (sevFilter && c.severity !== sevFilter)  return false;
     if (covFilter === 'covered' && !c.isCovered) return false;
     if (covFilter === 'gap'     &&  c.isCovered) return false;
     return true;
   }), [detail.controls, search, catFilter, sevFilter, covFilter]);
 
-  async function handleToggle(ctrl: ApiControl) {
-    setToggling(ctrl.id);
+  async function handleToggle(control: ApiControl) {
+    setToggling(control.id);
     try {
-      const updated = await frameworkAPI.updateCoverage(detail.code, ctrl.id, !ctrl.isCovered);
+      const updated = await frameworkAPI.updateCoverage(detail.code, control.id, !control.isCovered);
       onCoverageToggle(updated);
-      toast(`${ctrl.code} marked as ${updated.isCovered ? 'covered' : 'gap'}`, 'success');
+      toast(`${control.code} marked as ${updated.isCovered ? 'covered' : 'gap'}`, 'success');
     } catch {
       toast('Failed to update coverage', 'error');
     } finally {
@@ -101,16 +119,13 @@ function FrameworkDetailView({
     <div className="slide-in">
       <div className="page-header">
         <div className="page-header-left">
-          <button className="btn btn-secondary btn-sm" onClick={onBack} style={{ marginBottom: 8 }}>
-            &larr; Back
-          </button>
+          <button className="btn btn-secondary btn-sm" onClick={onBack} style={{ marginBottom: 8 }}>&larr; Back</button>
           <h1>{detail.name} <span style={{ color: 'var(--text2)', fontWeight: 500 }}>({detail.version})</span></h1>
           <p>{detail.description} &bull; {detail.totalControls} total controls</p>
         </div>
       </div>
 
       <div className="grid-2 section-gap">
-        {/* Coverage summary */}
         <div className="card">
           <div className="card-title" style={{ marginBottom: 16 }}>Coverage Summary</div>
           <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
@@ -144,7 +159,6 @@ function FrameworkDetailView({
           </div>
         </div>
 
-        {/* By category */}
         <div className="card">
           <div className="card-title" style={{ marginBottom: 16 }}>Coverage by Category</div>
           {detail.byCategory.map(cat => (
@@ -162,7 +176,6 @@ function FrameworkDetailView({
         </div>
       </div>
 
-      {/* Controls table */}
       <div className="card">
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           <div className="card-title" style={{ flex: 1 }}>Controls ({filtered.length})</div>
@@ -189,11 +202,8 @@ function FrameworkDetailView({
           <table>
             <thead>
               <tr>
-                <th style={{ width: 100 }}>Code</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th style={{ width: 90 }}>Severity</th>
-                <th style={{ width: 90, textAlign: 'center' }}>Covered</th>
+                <th style={{ width: 100 }}>Code</th><th>Title</th><th>Category</th>
+                <th style={{ width: 90 }}>Severity</th><th style={{ width: 90, textAlign: 'center' }}>Covered</th>
               </tr>
             </thead>
             <tbody>
@@ -218,7 +228,6 @@ function FrameworkDetailView({
                     <button
                       onClick={() => handleToggle(ctrl)}
                       disabled={togglingId === ctrl.id}
-                      title={ctrl.isCovered ? 'Mark as gap' : 'Mark as covered'}
                       style={{
                         width: 28, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer',
                         background: ctrl.isCovered ? '#D1FAE5' : 'var(--surface2)',
@@ -226,10 +235,9 @@ function FrameworkDetailView({
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         opacity: togglingId === ctrl.id ? 0.5 : 1,
                       }}
+                      title={ctrl.isCovered ? 'Mark as gap' : 'Mark as covered'}
                     >
-                      {ctrl.isCovered
-                        ? <Icons.Check style={{ width: 14, height: 14 }} />
-                        : <Icons.X    style={{ width: 14, height: 14 }} />}
+                      {ctrl.isCovered ? <Icons.Check style={{ width: 14, height: 14 }} /> : <Icons.X style={{ width: 14, height: 14 }} />}
                     </button>
                   </td>
                 </tr>
@@ -245,85 +253,91 @@ function FrameworkDetailView({
 // ─── LIST VIEW ────────────────────────────────────────────────────────────────
 
 export function FrameworksPage({ toast }: Props) {
-  const { frameworks, loading, error, reload } = useFrameworks();
+  const { frameworks, loading, error, setFrameworks } = useFrameworks();
   const [selectedCode,  setSelectedCode]  = useState<string | null>(null);
-  const [mapping,       setMapping]        = useState(false);
-  const [mappingStep,   setMappingStep]    = useState('');
-  const [mappingResult, setMappingResult]  = useState<MappingResult | null>(null);
+  const [mapping,       setMapping]       = useState(false);
+  const [mappingResult, setMappingResult] = useState<MappingResult | null>(null);
+  const [mappingStage,  setMappingStage]  = useState('');
 
-  const { detail, loading: detailLoading, error: detailError, updateControlLocally } =
-    useFrameworkDetail(selectedCode);
+  const { detail, loading: detailLoading, error: detailError, updateControlLocally } = useFrameworkDetail(selectedCode);
 
   // ── Map All Documents ──────────────────────────────────────────────────────
-  async function handleMapAll() {
-    if (mapping) return;
+  async function handleMapAllDocuments() {
     setMapping(true);
-    setMappingResult(null);
+    setMappingStage('Scanning documents…');
+
+    // Staged progress messages for UX
+    const stages = [
+      { msg: 'Scanning documents…',          delay: 0    },
+      { msg: 'Extracting policy content…',   delay: 600  },
+      { msg: 'Matching controls…',           delay: 1400 },
+      { msg: 'Updating coverage scores…',    delay: 2200 },
+    ];
+    stages.forEach(s => setTimeout(() => setMappingStage(s.msg), s.delay));
+
     try {
-      // Show step-by-step progress while the API runs
-      setMappingStep('Scanning documents…');
-      await sleep(500);
-      setMappingStep('Matching controls…');
-      await sleep(600);
-      setMappingStep('Updating coverage…');
+      const result = await mapAllDocuments();
 
-      const result = await frameworkAPI.mapAllDocuments();  // ← real API call
-
-      setMappingStep('Refreshing cards…');
-      reload();   // re-fetch framework summaries → card %s update live
-
+      // Update the framework cards in place with fresh data from the API
+      setFrameworks(result.updatedFrameworks);
       setMappingResult(result);
-      toast(
-        result.controlsUpdated > 0
-          ? `${result.controlsUpdated} controls newly covered across ${result.frameworksAffected.length} frameworks`
-          : 'All controls are already fully mapped!',
-        result.controlsUpdated > 0 ? 'success' : 'info'
-      );
+      toast(result.summary, 'success');
+
+      // Auto-dismiss the modal after 4 seconds
+      setTimeout(() => setMappingResult(null), 4000);
     } catch (e: any) {
-      toast(e?.response?.data?.message ?? 'Mapping failed — check backend', 'error');
+      toast(e?.response?.data?.message ?? 'Mapping failed — please try again', 'error');
     } finally {
       setMapping(false);
-      setMappingStep('');
+      setMappingStage('');
     }
   }
 
-  function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-
-  // ── States ─────────────────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="slide-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-      <div style={{ textAlign: 'center', color: 'var(--text3)' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>⟳</div>
-        <div>Loading frameworks…</div>
-      </div>
-    </div>
-  );
-
-  if (error) return (
-    <div className="slide-in">
-      <div className="card" style={{ textAlign: 'center', padding: 40, color: '#DC2626' }}>
-        <div style={{ fontSize: 24, marginBottom: 8 }}>⚠</div>
-        <div style={{ fontWeight: 600 }}>Failed to load frameworks</div>
-        <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>{error}</div>
-      </div>
-    </div>
-  );
-
-  if (selectedCode) {
-    if (detailLoading || !detail) return (
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
       <div className="slide-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
         <div style={{ textAlign: 'center', color: 'var(--text3)' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>⟳</div>
-          <div>Loading details…</div>
+          <div>Loading frameworks…</div>
         </div>
       </div>
     );
-    if (detailError) return (
+  }
+
+  // ── Error ──────────────────────────────────────────────────────────────────
+  if (error) {
+    return (
       <div className="slide-in">
-        <button className="btn btn-secondary btn-sm" onClick={() => setSelectedCode(null)} style={{ marginBottom: 16 }}>&larr; Back</button>
-        <div className="card" style={{ color: '#DC2626' }}>Failed to load: {detailError}</div>
+        <div className="card" style={{ textAlign: 'center', padding: 40, color: '#DC2626' }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>⚠</div>
+          <div style={{ fontWeight: 600 }}>Failed to load frameworks</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>{error}</div>
+        </div>
       </div>
     );
+  }
+
+  // ── Detail view ────────────────────────────────────────────────────────────
+  if (selectedCode) {
+    if (detailLoading || !detail) {
+      return (
+        <div className="slide-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+          <div style={{ textAlign: 'center', color: 'var(--text3)' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>⟳</div>
+            <div>Loading details…</div>
+          </div>
+        </div>
+      );
+    }
+    if (detailError) {
+      return (
+        <div className="slide-in">
+          <button className="btn btn-secondary btn-sm" onClick={() => setSelectedCode(null)} style={{ marginBottom: 16 }}>&larr; Back</button>
+          <div className="card" style={{ color: '#DC2626' }}>Failed to load: {detailError}</div>
+        </div>
+      );
+    }
     return (
       <FrameworkDetailView
         detail={detail}
@@ -334,56 +348,50 @@ export function FrameworksPage({ toast }: Props) {
     );
   }
 
-  // ── Main list view ─────────────────────────────────────────────────────────
+  // ── List view ──────────────────────────────────────────────────────────────
   return (
     <div className="slide-in">
+      {/* Success modal */}
+      {mappingResult && <MappingModal result={mappingResult} />}
+
       <div className="page-header">
         <div className="page-header-left">
           <h1>Compliance Frameworks</h1>
           <p>Map your documents to regulatory standards and track coverage</p>
         </div>
 
-        {/* ── THE BUTTON ── */}
+        {/* Map All Documents button — with live progress state */}
         <button
           className="btn btn-primary btn-sm"
-          onClick={handleMapAll}
+          onClick={handleMapAllDocuments}
           disabled={mapping}
-          style={{ minWidth: 172, display: 'flex', alignItems: 'center', gap: 7 }}
+          style={{ minWidth: 180, position: 'relative', opacity: mapping ? 0.85 : 1 }}
         >
           {mapping ? (
-            <>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{
-                width: 13, height: 13, flexShrink: 0,
-                border: '2px solid rgba(255,255,255,0.3)',
-                borderTopColor: '#fff',
-                borderRadius: '50%',
-                display: 'inline-block',
-                animation: 'spin 0.7s linear infinite',
+                width: 13, height: 13, border: '2px solid rgba(255,255,255,0.35)',
+                borderTopColor: 'white', borderRadius: '50%',
+                display: 'inline-block', animation: 'spin 0.7s linear infinite',
               }} />
-              {mappingStep}
-            </>
+              {mappingStage || 'Mapping…'}
+            </span>
           ) : (
-            <>
-              <Icons.Zap style={{ width: 14, height: 14 }} />
-              Map All Documents
-            </>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icons.Zap style={{ width: 14, height: 14 }} /> Map All Documents
+            </span>
           )}
         </button>
       </div>
 
-      {/* Result banner — appears after mapping finishes */}
-      {mappingResult && (
-        <MappingBanner result={mappingResult} onDismiss={() => setMappingResult(null)} />
-      )}
-
       {/* Framework cards */}
       <div className="fw-cards">
-        {frameworks.map(fw => (
+        {frameworks.map((fw: ApiFrameworkSummary) => (
           <div
             key={fw.code}
             className="fw-card"
             style={{ borderLeftColor: fw.color, cursor: 'pointer' }}
-            onClick={() => setSelectedCode(fw.code)}
+            onClick={() => !mapping && setSelectedCode(fw.code)}
           >
             <div className="fw-card-header">
               <div>

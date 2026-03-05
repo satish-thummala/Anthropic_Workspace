@@ -6,38 +6,63 @@ import type {
   MappingResult,
 } from '../types/compliance.types';
 
+// ─── FRAMEWORK ENDPOINTS ──────────────────────────────────────────────────────
+
 export const frameworkAPI = {
 
-  /** GET /api/v1/frameworks — all active framework cards */
+  /**
+   * GET /api/v1/frameworks
+   * All active frameworks — used by Frameworks list page and Dashboard.
+   */
   getAll: async (): Promise<ApiFrameworkSummary[]> => {
     const { data } = await apiClient.get<ApiFrameworkSummary[]>('/frameworks');
     return data;
   },
 
-  /** GET /api/v1/frameworks/:code — full detail + controls */
+  /**
+   * GET /api/v1/frameworks/:code
+   * Full detail with controls + breakdown stats — used by View Details page.
+   */
   getDetail: async (code: string): Promise<ApiFrameworkDetail> => {
     const { data } = await apiClient.get<ApiFrameworkDetail>(`/frameworks/${code}`);
     return data;
   },
 
-  /** GET /api/v1/frameworks/:code/controls  (optional filters) */
+  // ─── CONTROL ENDPOINTS ──────────────────────────────────────────────────────
+
+  /**
+   * GET /api/v1/frameworks/:code/controls
+   * Supports optional filters via query params.
+   */
   getControls: async (
     code: string,
-    filters?: { keyword?: string; severity?: string; category?: string; isCovered?: boolean; }
+    filters?: {
+      keyword?:   string;
+      severity?:  string;
+      category?:  string;
+      isCovered?: boolean;
+    }
   ): Promise<ApiControl[]> => {
     const { data } = await apiClient.get<ApiControl[]>(
-      `/frameworks/${code}/controls`, { params: filters }
+      `/frameworks/${code}/controls`,
+      { params: filters }
     );
     return data;
   },
 
-  /** GET /api/v1/frameworks/:code/controls/categories */
+  /**
+   * GET /api/v1/frameworks/:code/controls/categories
+   * Distinct category list for filter dropdown.
+   */
   getCategories: async (code: string): Promise<string[]> => {
     const { data } = await apiClient.get<string[]>(`/frameworks/${code}/controls/categories`);
     return data;
   },
 
-  /** PATCH /api/v1/frameworks/:code/controls/:id/coverage */
+  /**
+   * PATCH /api/v1/frameworks/:code/controls/:controlId/coverage
+   * Toggle a control's isCovered flag — used by coverage checkbox.
+   */
   updateCoverage: async (
     frameworkCode: string,
     controlId: string,
@@ -52,12 +77,32 @@ export const frameworkAPI = {
 
   /**
    * POST /api/v1/frameworks/map-all
-   * Runs the document-to-control mapping engine on the backend.
-   * Returns updated framework summaries + a result summary so the
-   * framework cards refresh immediately without a second API call.
+   * Runs the document-to-control mapping engine.
+   * Returns updated framework summaries + a result summary.
    */
   mapAllDocuments: async (): Promise<MappingResult> => {
     const { data } = await apiClient.post<MappingResult>('/frameworks/map-all');
     return data;
   },
+};
+
+// ─── MAP ALL DOCUMENTS ────────────────────────────────────────────────────────
+
+export interface MappingResult {
+  documentsProcessed:     number;
+  controlsUpdated:        number;
+  controlsAlreadyCovered: number;
+  frameworksAffected:     string[];
+  updatedFrameworks:      import('../types/compliance.types').ApiFrameworkSummary[];
+  summary:                string;
+}
+
+/**
+ * POST /api/v1/frameworks/map-documents
+ * Triggers the document→control mapping simulation.
+ * Returns fresh framework summaries so the 4 cards can update immediately.
+ */
+export const mapAllDocuments = async (): Promise<MappingResult> => {
+  const { data } = await apiClient.post<MappingResult>('/frameworks/map-documents');
+  return data;
 };
