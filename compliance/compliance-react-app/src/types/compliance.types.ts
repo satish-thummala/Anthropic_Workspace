@@ -161,7 +161,8 @@ export type PageId =
   | "frameworks"
   | "gaps"
   | "risk"
-  | "reports";
+  | "reports"
+  | "aiInsights";
 
 export interface ToastMessage {
   id: number;

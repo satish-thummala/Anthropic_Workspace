@@ -13,4 +13,5 @@ export const PAGE_TITLES: Record<PageId, string> = {
   gaps:       'Gap Analysis',
   risk:       'Risk Scoring',
   reports:    'Reports & Exports',
+  aiInsights: 'AI Insights',
 };

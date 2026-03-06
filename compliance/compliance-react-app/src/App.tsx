@@ -5,12 +5,13 @@ import { AppLayout } from './components/Layout/AppLayout';
 import { LoginPage } from './components/Auth/LoginPage';
 import { Toast } from './components/shared/Toast';
 import { useToast } from './hooks/useToast';
-import { DashboardPage }  from './features/Dashboard/DashboardPage';
-import { DocumentsPage }  from './features/Documents/DocumentsPage';
-import { FrameworksPage } from './features/Frameworks/FrameworksPage';
-import { GapsPage }       from './features/Gaps/GapsPage';
-import { RiskPage }       from './features/Risk/RiskPage';
-import { ReportsPage }    from './features/Reports/ReportsPage';
+import { DashboardPage }    from './features/Dashboard/DashboardPage';
+import { DocumentsPage }    from './features/Documents/DocumentsPage';
+import { FrameworksPage }   from './features/Frameworks/FrameworksPage';
+import { GapsPage }         from './features/Gaps/GapsPage';
+import { RiskPage }         from './features/Risk/RiskPage';
+import { ReportsPage }      from './features/Reports/ReportsPage';
+import { AiInsightsPage }   from './features/AiInsights/AiInsightsPage';
 import './styles/globals.css';
 
 const PAGE_MAP: Record<PageId, React.FC<{ toast: any }>> = {
@@ -20,6 +21,7 @@ const PAGE_MAP: Record<PageId, React.FC<{ toast: any }>> = {
   gaps:       GapsPage,
   risk:       RiskPage,
   reports:    ReportsPage,
+  aiInsights: AiInsightsPage,
 };
 
 function AuthenticatedApp() {
