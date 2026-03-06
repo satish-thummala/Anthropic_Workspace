@@ -1,115 +1,164 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import type { User } from "../types/compliance.types";
-import { authAPI, type LoginResponse } from "../services/api-client";
+import React, {
+  createContext, useContext, useState,
+  useEffect, useRef, useCallback,
+} from 'react';
+import type { User } from '../types/compliance.types';
+import { authAPI, type LoginResponse } from '../services/api-client';
 
+// ─── Config ──────────────────────────────────────────────────────────────────
+const IDLE_TIMEOUT_MS  = 15 * 60 * 1000;   // 15 min idle → show warning
+const WARNING_SECS     = 60;                 // 60-second countdown in modal
+const ACTIVITY_EVENTS  = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'] as const;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface AuthContextType {
-  user: User | null;
+  user:            User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  isLoading: boolean;
+  login:           (email: string, password: string) => Promise<boolean>;
+  logout:          (reason?: 'user' | 'timeout') => void;
+  isLoading:       boolean;
+  // Exposed so App can render the warning modal
+  showWarning:     boolean;
+  warningCountdown: number;
+  stayLoggedIn:    () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem("compliance_user");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+  const [user,             setUser]             = useState<User | null>(() => {
+    try { return JSON.parse(localStorage.getItem('compliance_user') ?? 'null'); }
+    catch { return null; }
   });
+  const [isLoading,        setIsLoading]        = useState(false);
+  const [showWarning,      setShowWarning]      = useState(false);
+  const [warningCountdown, setWarningCountdown] = useState(WARNING_SECS);
 
-  const [isLoading, setIsLoading] = useState(false);
+  // Refs so callbacks always see latest values without re-registering listeners
+  const idleTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isAuthRef         = useRef(!!user);
+  isAuthRef.current = !!user;
 
+  // ── Logout ─────────────────────────────────────────────────────────────────
+  const logout = useCallback(async (reason: 'user' | 'timeout' = 'user') => {
+    clearTimeout(idleTimerRef.current!);
+    clearInterval(countdownTimerRef.current!);
+    setShowWarning(false);
+
+    if (reason === 'user') {
+      try { await authAPI.logout(); } catch { /* ignore */ }
+    }
+
+    setUser(null);
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('compliance_user');
+  }, []);
+
+  // ── Show warning modal + start countdown ───────────────────────────────────
+  const startCountdown = useCallback(() => {
+    setWarningCountdown(WARNING_SECS);
+    setShowWarning(true);
+
+    // Tick every second
+    countdownTimerRef.current = setInterval(() => {
+      setWarningCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownTimerRef.current!);
+          logout('timeout');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [logout]);
+
+  // ── Reset idle timer on any activity ──────────────────────────────────────
+  const resetIdleTimer = useCallback(() => {
+    if (!isAuthRef.current) return;
+
+    // If warning is showing, user activity = stay logged in
+    if (showWarning) return;
+
+    clearTimeout(idleTimerRef.current!);
+    idleTimerRef.current = setTimeout(startCountdown, IDLE_TIMEOUT_MS);
+  }, [showWarning, startCountdown]);
+
+  // ── "Stay logged in" button in warning modal ───────────────────────────────
+  const stayLoggedIn = useCallback(() => {
+    clearInterval(countdownTimerRef.current!);
+    setShowWarning(false);
+    setWarningCountdown(WARNING_SECS);
+    // Restart idle timer
+    clearTimeout(idleTimerRef.current!);
+    idleTimerRef.current = setTimeout(startCountdown, IDLE_TIMEOUT_MS);
+  }, [startCountdown]);
+
+  // ── Register / unregister activity listeners ───────────────────────────────
+  useEffect(() => {
+    if (!user) return; // only track when logged in
+
+    // Start idle timer immediately on login
+    idleTimerRef.current = setTimeout(startCountdown, IDLE_TIMEOUT_MS);
+
+    const handler = () => resetIdleTimer();
+    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, handler, { passive: true }));
+
+    return () => {
+      clearTimeout(idleTimerRef.current!);
+      clearInterval(countdownTimerRef.current!);
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, handler));
+    };
+  }, [user, resetIdleTimer, startCountdown]);
+
+  // ── Login ──────────────────────────────────────────────────────────────────
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Call real backend API
       const response: LoginResponse = await authAPI.login({ email, password });
 
-      // Store tokens
-      localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("refreshToken", response.refreshToken);
+      localStorage.setItem('accessToken',  response.accessToken);
+      localStorage.setItem('refreshToken', response.refreshToken);
 
-      // Map backend user to frontend User type
       const userData: User = {
-        id: response.user.id.toString(),
-        name: response.user.name,
-        email: response.user.email,
-        role: response.user.role as "admin" | "analyst" | "viewer",
+        id:           response.user.id.toString(),
+        name:         response.user.name,
+        email:        response.user.email,
+        role:         response.user.role as 'admin' | 'analyst' | 'viewer',
         organization: response.user.organization,
-        avatar: response.user.avatar,
+        avatar:       response.user.avatar,
       };
 
       setUser(userData);
-      localStorage.setItem("compliance_user", JSON.stringify(userData));
-
+      localStorage.setItem('compliance_user', JSON.stringify(userData));
       return true;
-    } catch (error: any) {
-      console.error("Login failed:", error);
-
-      // Clear any stored data on failure
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("compliance_user");
-
+    } catch {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('compliance_user');
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = async () => {
-    setIsLoading(true);
-    try {
-      // Call backend logout (revokes refresh tokens)
-      await authAPI.logout();
-    } catch (error) {
-      console.error("Logout API call failed:", error);
-    } finally {
-      // Clear local state regardless of API call success
-      setUser(null);
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("compliance_user");
-      setIsLoading(false);
-    }
-  };
-
-  // Check if token is valid on mount
+  // ── Verify token on mount ──────────────────────────────────────────────────
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem("accessToken");
-      const storedUser = localStorage.getItem("compliance_user");
-
-      if (token && storedUser) {
-        try {
-          // Verify token is still valid
-          await authAPI.getCurrentUser();
-          // Token is valid, user already set from localStorage
-        } catch (error) {
-          // Token invalid, clear everything
-          logout();
-        }
-      }
-    };
-
-    checkAuth();
-  }, []);
+    const token      = localStorage.getItem('accessToken');
+    const storedUser = localStorage.getItem('compliance_user');
+    if (token && storedUser) {
+      authAPI.getCurrentUser().catch(() => logout('timeout'));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        login,
-        logout,
-        isLoading,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user, isAuthenticated: !!user,
+      login, logout, isLoading,
+      showWarning, warningCountdown, stayLoggedIn,
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -117,6 +166,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
