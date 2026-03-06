@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import type { ToastFn, ApiRiskScore, ApiRiskHistory } from '../../types/compliance.types';
+import type { ToastFn, ApiRiskScore, ApiRiskHistory, ApiDocumentStats } from '../../types/compliance.types';
 import { riskAPI } from '../../services/risk-api';
 import { gapAPI } from '../../services/gap-api';
-import { INITIAL_DOCUMENTS } from '../../constants/mockData';
+import { documentAPI } from '../../services/document-api';
 import { SEV_COLORS, SEV_BG } from '../../constants/statusMaps';
 import { Icons } from '../../components/shared/Icons';
 import { useFrameworks } from '../../hooks/useFrameworks';
@@ -13,64 +13,58 @@ interface Props { toast: ToastFn; }
 export function DashboardPage({ toast }: Props) {
   const { frameworks, loading: fwLoading } = useFrameworks();
 
-  const [riskScore,    setRiskScore]    = useState<ApiRiskScore | null>(null);
-  const [riskHistory,  setRiskHistory]  = useState<ApiRiskHistory | null>(null);
-  const [gapStats,     setGapStats]     = useState<{ totalOpen: number; critical: number } | null>(null);
-  const [loadingRisk,  setLoadingRisk]  = useState(true);
+  const [riskScore,   setRiskScore]   = useState<ApiRiskScore | null>(null);
+  const [riskHistory, setRiskHistory] = useState<ApiRiskHistory | null>(null);
+  const [gapStats,    setGapStats]    = useState<{ totalOpen: number; critical: number } | null>(null);
+  const [docStats,    setDocStats]    = useState<ApiDocumentStats | null>(null);
+  const [loading,     setLoading]     = useState(true);
+
+  const [criticalGaps, setCriticalGaps] = useState<{
+    id: string; controlCode: string; controlTitle: string; frameworkCode: string; severity: string;
+  }[]>([]);
 
   useEffect(() => {
-    // Fire all three in parallel — dashboard should feel instant
+    // All 4 API calls fire in parallel so the dashboard loads in one round-trip
     Promise.all([
       riskAPI.getScore().then(setRiskScore).catch(() => null),
       riskAPI.getHistory().then(setRiskHistory).catch(() => null),
       gapAPI.getStats().then(s => setGapStats({ totalOpen: s.totalOpen, critical: s.critical })).catch(() => null),
-    ]).finally(() => setLoadingRisk(false));
+      documentAPI.getStats().then(setDocStats).catch(() => null),
+    ]).finally(() => setLoading(false));
+
+    // Top priority gaps — separate so it doesn't block the stat cards
+    gapAPI.getAll({ severity: 'CRITICAL', status: 'open' })
+      .then(gaps => setCriticalGaps(
+        gaps.slice(0, 2).map(g => ({
+          id: g.id, controlCode: g.controlCode, controlTitle: g.controlTitle,
+          frameworkCode: g.frameworkCode, severity: g.severity,
+        }))
+      ))
+      .catch(() => null);
   }, []);
 
-  // ── Derived framework values (live from API) ──────────────────────────────
+  // ── Framework totals (live from useFrameworks) ────────────────────────────
   const total   = frameworks.reduce((a, f) => a + f.totalControls,   0);
   const covered = frameworks.reduce((a, f) => a + f.coveredControls, 0);
   const avgCov  = frameworks.length
     ? Math.round(frameworks.reduce((a, f) => a + f.coveragePercentage, 0) / frameworks.length)
     : 0;
 
-  // ── Risk values (live from API) ───────────────────────────────────────────
-  const currentRiskScore = riskScore?.score ?? '…';
-  const improvement      = riskHistory?.improvement ?? 0;
-  const period           = riskHistory?.period ?? '';
-  const historyPoints    = riskHistory?.history ?? [];
-  const openGaps         = gapStats?.totalOpen ?? '…';
-  const critGaps         = gapStats?.critical ?? 0;
-
-  // ── Pie data ──────────────────────────────────────────────────────────────
   const pieData = [
     { name: 'Covered', value: covered,        fill: '#3B82F6' },
     { name: 'Gaps',    value: total - covered, fill: '#E2E8F0' },
   ];
 
-  // ── Top priority gaps (live from /gaps?status=open&severity=CRITICAL) ─────
-  // We fetch separately so the dashboard doesn't need the full gap list
-  const [criticalGaps, setCriticalGaps] = useState<{ id: string; controlCode: string; controlTitle: string; frameworkCode: string; severity: string }[]>([]);
-  useEffect(() => {
-    gapAPI.getAll({ severity: 'CRITICAL', status: 'open' })
-      .then(gaps => setCriticalGaps(
-        gaps.slice(0, 2).map(g => ({
-          id: g.id,
-          controlCode: g.controlCode,
-          controlTitle: g.controlTitle,
-          frameworkCode: g.frameworkCode,
-          severity: g.severity,
-        }))
-      ))
-      .catch(() => null);
-  }, []);
+  const improvement   = riskHistory?.improvement ?? 0;
+  const period        = riskHistory?.period ?? '';
+  const historyPoints = riskHistory?.history ?? [];
 
   return (
     <div className="slide-in">
       <div className="page-header">
         <div className="page-header-left">
           <h1>Compliance Overview</h1>
-          <p>Live data from all frameworks, gaps and risk snapshots</p>
+          <p>Live data from all frameworks, gaps, documents and risk snapshots</p>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => toast('Running full compliance analysis…', 'info')}>
           <Icons.Zap style={{ width: 14, height: 14 }} /> Run Analysis
@@ -94,16 +88,16 @@ export function DashboardPage({ toast }: Props) {
           },
           {
             label: 'Open Gaps',
-            value: String(openGaps),
+            value: loading ? '…' : String(gapStats?.totalOpen ?? 0),
             Icon: Icons.AlertTriangle, bg: '#FFF7ED', ic: '#D97706',
-            delta: `${critGaps} critical`, up: false,
+            delta: `${gapStats?.critical ?? 0} critical`, up: false,
           },
           {
-            label: 'Risk Score',
-            value: loadingRisk ? '…' : String(currentRiskScore),
-            Icon: Icons.TrendingUp, bg: '#F5F3FF', ic: '#7C3AED',
-            delta: improvement >= 0 ? `↑ +${improvement} pts (${period})` : `↓ ${improvement} pts`,
-            up: improvement >= 0,
+            label: 'Documents Ingested',
+            value: loading ? '…' : String(docStats?.analyzed ?? 0),   // ← LIVE from /documents/stats
+            Icon: Icons.Document, bg: '#F5F3FF', ic: '#7C3AED',
+            delta: loading ? '…' : `${docStats?.total ?? 0} total uploaded`,
+            up: true,
           },
         ].map(s => (
           <div key={s.label} className="stat-card">
@@ -165,10 +159,10 @@ export function DashboardPage({ toast }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
             <div>
               <div style={{ fontSize: 36, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.03em' }}>
-                {loadingRisk ? '…' : currentRiskScore}
+                {loading ? '…' : (riskScore?.score ?? '—')}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Current Score</div>
-              {!loadingRisk && improvement !== 0 && (
+              {!loading && improvement !== 0 && (
                 <div style={{ fontSize: 12, color: improvement >= 0 ? '#16A34A' : '#EF4444', marginTop: 2 }}>
                   {improvement >= 0 ? '↑' : '↓'} {Math.abs(improvement)} pts ({period})
                 </div>
@@ -187,35 +181,30 @@ export function DashboardPage({ toast }: Props) {
               ) : (
                 <div style={{ height: '100%', display: 'flex', alignItems: 'center',
                               color: 'var(--text3)', fontSize: 12 }}>
-                  {loadingRisk ? 'Loading…' : 'No history yet'}
+                  {loading ? 'Loading…' : 'No history yet'}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Top Priority Gaps — live from API */}
+          {/* Top Priority Gaps */}
           <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
             <div className="card-title" style={{ marginBottom: 12 }}>Top Priority Gaps</div>
             {criticalGaps.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--text3)' }}>
-                No open critical gaps — great work!
-              </div>
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>No open critical gaps — great work!</div>
             ) : (
               criticalGaps.map(g => (
                 <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10,
                                          padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                   <Icons.AlertTriangle style={{ width: 15, height: 15,
-                                                color: SEV_COLORS[g.severity as keyof typeof SEV_COLORS],
-                                                flexShrink: 0 }} />
+                    color: SEV_COLORS[g.severity as keyof typeof SEV_COLORS], flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{g.controlTitle}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                      {g.frameworkCode} • {g.controlCode}
-                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{g.frameworkCode} • {g.controlCode}</div>
                   </div>
-                  <span className="badge"
-                        style={{ background: SEV_BG[g.severity as keyof typeof SEV_BG],
-                                 color: SEV_COLORS[g.severity as keyof typeof SEV_COLORS] }}>
+                  <span className="badge" style={{
+                    background: SEV_BG[g.severity as keyof typeof SEV_BG],
+                    color: SEV_COLORS[g.severity as keyof typeof SEV_COLORS] }}>
                     {g.severity}
                   </span>
                 </div>
