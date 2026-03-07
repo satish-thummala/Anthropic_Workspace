@@ -4,9 +4,9 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
 interface AppLayoutProps {
-  page: PageId;
-  setPage: (p: PageId) => void;
-  user: User;
+  page:     PageId;
+  setPage:  (p: PageId) => void;
+  user:     User;
   onLogout: () => void;
   children: React.ReactNode;
 }
@@ -16,7 +16,7 @@ export function AppLayout({ page, setPage, user, onLogout, children }: AppLayout
     <div className="app-layout">
       <Sidebar page={page} setPage={setPage} user={user} onLogout={onLogout} />
       <div className="main">
-        <Topbar page={page} user={user} />
+        <Topbar page={page} user={user} setPage={setPage} />
         <div className="page-content">{children}</div>
       </div>
     </div>
