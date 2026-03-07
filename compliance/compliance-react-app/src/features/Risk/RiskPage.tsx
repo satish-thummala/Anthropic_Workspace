@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   PieChart, Pie, Cell,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area,
 } from 'recharts';
 import type { ToastFn, ApiRiskScore, ApiRiskHistory } from '../../types/compliance.types';
-import { riskAPI } from '../../services/risk-api';
+import { riskAPI, type RiskIntelligenceResponse, type RiskAlert } from '../../services/risk-api';
 import { SEV_COLORS, SEV_BG } from '../../constants/statusMaps';
 import { Icons } from '../../components/shared/Icons';
 
@@ -24,11 +25,19 @@ const RISK_BG: Record<string, string> = {
   CRITICAL: '#FFF1EE',
 };
 
+const ALERT_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  critical: { bg: '#FEF2F2', color: '#DC2626', border: '#FCA5A5' },
+  warning:  { bg: '#FFFBEB', color: '#D97706', border: '#FCD34D' },
+  info:     { bg: '#EFF6FF', color: '#2563EB', border: '#93C5FD' },
+};
+
 export function RiskPage({ toast }: Props) {
   const [score,       setScore]       = useState<ApiRiskScore | null>(null);
   const [history,     setHistory]     = useState<ApiRiskHistory | null>(null);
+  const [intelligence, setIntelligence] = useState<RiskIntelligenceResponse | null>(null);
   const [loadingScore, setLoadingScore] = useState(true);
   const [loadingHist,  setLoadingHist]  = useState(true);
+  const [loadingIntel, setLoadingIntel] = useState(true);
   const [recalculating, setRecalculating] = useState(false);
   const [error,        setError]        = useState<string | null>(null);
 
@@ -55,7 +64,23 @@ export function RiskPage({ toast }: Props) {
     }
   }, []);
 
-  useEffect(() => { loadScore(); loadHistory(); }, [loadScore, loadHistory]);
+  const loadIntelligence = useCallback(async () => {
+    try {
+      setLoadingIntel(true);
+      setIntelligence(await riskAPI.getIntelligence());
+    } catch (err) {
+      console.error('Failed to load risk intelligence:', err);
+      // Don't block page if intelligence fails
+    } finally {
+      setLoadingIntel(false);
+    }
+  }, []);
+
+  useEffect(() => { 
+    loadScore(); 
+    loadHistory(); 
+    loadIntelligence();
+  }, [loadScore, loadHistory, loadIntelligence]);
 
   // ── Recalculate ────────────────────────────────────────────────────────────
 
@@ -64,7 +89,7 @@ export function RiskPage({ toast }: Props) {
     try {
       const fresh = await riskAPI.recalculate();
       setScore(fresh);
-      await loadHistory();   // refresh trend chart with new snapshot
+      await Promise.all([loadHistory(), loadIntelligence()]);   // refresh both
       toast(`Risk score recalculated — ${fresh.score} (${fresh.riskLevel} RISK)`, 'success');
     } catch {
       toast('Failed to recalculate risk score', 'error');
@@ -143,6 +168,14 @@ export function RiskPage({ toast }: Props) {
       color:  '#7C3AED',
       impact: 'Low Impact',
     },
+  ] : [];
+
+  // Risk Intelligence projection chart data
+  const projectionData = intelligence?.projection ? [
+    { period: 'Now', score: intelligence.projection.currentScore },
+    { period: '30d', score: intelligence.projection.projected30Days },
+    { period: '60d', score: intelligence.projection.projected60Days },
+    { period: '90d', score: intelligence.projection.projected90Days },
   ] : [];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -366,6 +399,257 @@ export function RiskPage({ toast }: Props) {
         </div>
 
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── RISK INTELLIGENCE SECTION ──────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+
+      <div style={{ marginTop: 32, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Risk Analytics & Projections</h2>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text2)' }}>
+          Predictive risk analytics based on historical trends and current gaps
+        </p>
+      </div>
+
+      {loadingIntel && !intelligence ? (
+        <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>⟳</div>
+          <div>Loading risk intelligence…</div>
+        </div>
+      ) : intelligence ? (
+        <>
+          <div className="grid-2 section-gap">
+
+            {/* ── Risk Projection Chart ────────────────────────────────────────── */}
+            <div className="card">
+              <div className="card-title" style={{ marginBottom: 4 }}>
+                Risk Score Projection (Next 90 Days)
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+                Forecasted compliance trajectory based on current velocity
+              </div>
+
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={projectionData}>
+                  <defs>
+                    <linearGradient id="projGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#7C3AED" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                  <XAxis 
+                    dataKey="period" 
+                    tick={{ fontSize: 11, fill: '#94A3B8' }} 
+                    axisLine={false} 
+                    tickLine={false} 
+                  />
+                  <YAxis 
+                    domain={[0, 100]} 
+                    tick={{ fontSize: 11, fill: '#94A3B8' }} 
+                    axisLine={false} 
+                    tickLine={false} 
+                  />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                    formatter={(val: number) => [`${val}`, 'Projected Score']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#7C3AED"
+                    strokeWidth={2.5}
+                    fill="url(#projGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+
+              {/* Projection Stats */}
+              <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <div style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>30 Days</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#7C3AED' }}>
+                    {intelligence.projection.projected30Days}
+                  </div>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>60 Days</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#7C3AED' }}>
+                    {intelligence.projection.projected60Days}
+                  </div>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>90 Days</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#7C3AED' }}>
+                    {intelligence.projection.projected90Days}
+                  </div>
+                </div>
+              </div>
+
+              {/* Trend Direction */}
+              <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ 
+                  fontSize: 11, fontWeight: 600, color: 'var(--text3)',
+                  textTransform: 'uppercase', letterSpacing: '0.05em'
+                }}>
+                  Trend:
+                </div>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '4px 10px', borderRadius: 99,
+                  background: intelligence.projection.trendDirection === 'improving' ? '#F0FDF4' :
+                              intelligence.projection.trendDirection === 'declining' ? '#FEF2F2' : '#F1F5F9',
+                  color: intelligence.projection.trendDirection === 'improving' ? '#16A34A' :
+                         intelligence.projection.trendDirection === 'declining' ? '#DC2626' : '#64748B',
+                  fontSize: 11, fontWeight: 700
+                }}>
+                  {intelligence.projection.trendDirection === 'improving' ? '↗' :
+                   intelligence.projection.trendDirection === 'declining' ? '↘' : '→'}
+                  {intelligence.projection.trendDirection.toUpperCase()}
+                </div>
+                <div style={{
+                  padding: '4px 10px', borderRadius: 99,
+                  background: 'var(--surface2)',
+                  color: 'var(--text2)',
+                  fontSize: 11, fontWeight: 600
+                }}>
+                  Confidence: {intelligence.projection.confidence.toUpperCase()}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Risk Alerts Panel ────────────────────────────────────────────── */}
+            <div className="card">
+              <div className="card-title" style={{ marginBottom: 16 }}>
+                Risk Alerts ({intelligence.alerts.length})
+              </div>
+
+              <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+                {intelligence.alerts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
+                    <div style={{ fontSize: 13 }}>No active risk alerts</div>
+                  </div>
+                ) : (
+                  intelligence.alerts.map((alert, idx) => {
+                    const alertStyle = ALERT_COLORS[alert.type] || ALERT_COLORS.info;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          marginBottom: 12,
+                          padding: 12,
+                          borderRadius: 8,
+                          background: alertStyle.bg,
+                          border: `1px solid ${alertStyle.border}`,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                          <div style={{
+                            width: 20, height: 20, borderRadius: '50%',
+                            background: alertStyle.color,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, color: 'white', fontWeight: 700, flexShrink: 0
+                          }}>
+                            {alert.type === 'critical' ? '!' : alert.type === 'warning' ? '⚠' : 'i'}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: alertStyle.color, marginBottom: 4 }}>
+                              {alert.title}
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 6, lineHeight: 1.5 }}>
+                              {alert.message}
+                            </div>
+                            <div style={{
+                              fontSize: 11.5, color: 'var(--text2)',
+                              padding: '6px 10px', background: 'rgba(255,255,255,0.6)',
+                              borderRadius: 6, border: '1px solid rgba(0,0,0,0.05)'
+                            }}>
+                              💡 {alert.recommendation}
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: 10, fontWeight: 700,
+                            padding: '2px 6px', borderRadius: 4,
+                            background: SEV_BG[alert.severity],
+                            color: SEV_COLORS[alert.severity]
+                          }}>
+                            {alert.severity}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── Critical Gaps Section ─────────────────────────────────────────── */}
+          {intelligence.criticalGaps.length > 0 && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="card-title" style={{ marginBottom: 16 }}>
+                Critical & High Risk Gaps Requiring Immediate Attention ({intelligence.criticalGaps.length})
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 12 }}>
+                {intelligence.criticalGaps.slice(0, 6).map((gap) => (
+                  <div
+                    key={gap.gapId}
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      background: 'var(--surface2)',
+                      border: `1.5px solid ${SEV_COLORS[gap.severity]}40`,
+                      borderLeft: `4px solid ${SEV_COLORS[gap.severity]}`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                      <div style={{
+                        minWidth: 10, height: 10, borderRadius: '50%',
+                        background: SEV_COLORS[gap.severity], flexShrink: 0, marginTop: 4
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                          {gap.controlCode} – {gap.controlTitle}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>
+                          {gap.frameworkCode} · {gap.severity} · {gap.daysOpen} days open
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--text2)', lineHeight: 1.5 }}>
+                          {gap.impactDescription}
+                        </div>
+                      </div>
+                      <div style={{
+                        fontSize: 14, fontWeight: 800,
+                        color: SEV_COLORS[gap.severity],
+                        minWidth: 32, textAlign: 'right'
+                      }}>
+                        {gap.riskScore}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {intelligence.criticalGaps.length > 6 && (
+                <div style={{ marginTop: 12, textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>
+                  + {intelligence.criticalGaps.length - 6} more critical gaps
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>⚠</div>
+          <div>Risk intelligence data unavailable</div>
+        </div>
+      )}
+
     </div>
   );
 }
