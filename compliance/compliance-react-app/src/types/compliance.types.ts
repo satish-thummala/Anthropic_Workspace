@@ -162,7 +162,8 @@ export type PageId =
   | "gaps"
   | "risk"
   | "reports"
-  | "aiInsights";
+  | "aiInsights"
+  | "complianceQA";
 
 export interface ToastMessage {
   id: number;
@@ -309,56 +310,62 @@ export interface ApiDocumentStats {
 
 // ─── REPORT API SHAPES (Spring Boot /api/v1/reports) ─────────────────────
 
-export type ApiReportType = 'gap' | 'coverage' | 'risk' | 'audit' | 'policy' | 'executive';
-export type ApiReportFormat = 'PDF' | 'Excel' | 'Word';
-export type ApiReportStatus = 'generating' | 'ready' | 'failed';
+export type ApiReportType =
+  | "gap"
+  | "coverage"
+  | "risk"
+  | "audit"
+  | "policy"
+  | "executive";
+export type ApiReportFormat = "PDF" | "Excel" | "Word";
+export type ApiReportStatus = "generating" | "ready" | "failed";
 
 export interface ApiReport {
-  id:               string;
-  name:             string;
-  type:             ApiReportType;
-  format:           ApiReportFormat;
-  fileSizeLabel:    string;
-  status:           ApiReportStatus;
-  errorMessage?:    string;
-  generatedById?:   number;
+  id: string;
+  name: string;
+  type: ApiReportType;
+  format: ApiReportFormat;
+  fileSizeLabel: string;
+  status: ApiReportStatus;
+  errorMessage?: string;
+  generatedById?: number;
   generatedByName?: string;
-  generatedAt:      string;
-  contentSummary?:  Record<string, any>;
-  parameters?:      Record<string, any>;
+  generatedAt: string;
+  contentSummary?: Record<string, any>;
+  parameters?: Record<string, any>;
 }
 
 export interface ApiReportStats {
-  totalReports:      number;
-  readyReports:      number;
+  totalReports: number;
+  readyReports: number;
   generatingReports: number;
-  failedReports:     number;
-  byType:            Record<string, number>;
-  recentReports:     ApiReport[];
+  failedReports: number;
+  byType: Record<string, number>;
+  recentReports: ApiReport[];
 }
 
 export interface ApiReportTypeInfo {
-  id:               string;
-  label:            string;
-  description:      string;
+  id: string;
+  label: string;
+  description: string;
   availableFormats: string[];
 }
 
 export interface GenerateReportRequest {
-  type:            ApiReportType;
-  format?:         ApiReportFormat;
-  frameworkCode?:  string;
-  severity?:       string;
-  startDate?:      string;
-  endDate?:        string;
-  title?:          string;
-  includeCharts?:  boolean;
+  type: ApiReportType;
+  format?: ApiReportFormat;
+  frameworkCode?: string;
+  severity?: string;
+  startDate?: string;
+  endDate?: string;
+  title?: string;
+  includeCharts?: boolean;
   includeDetails?: boolean;
 }
 
 export interface GenerateReportResponse {
-  reportId:         string;
-  status:           string;
-  message:          string;
+  reportId: string;
+  status: string;
+  message: string;
   estimatedSeconds: number;
 }

@@ -13,6 +13,7 @@ import { GapsPage } from "./features/Gaps/GapsPage";
 import { RiskPage } from "./features/Risk/RiskPage";
 import { ReportsPage } from "./features/Reports/ReportsPage";
 import { AiInsightsPage } from "./features/AiInsights/AiInsightsPage";
+import { ComplianceQAPage } from "./features/ComplianceQA/ComplianceQAPage";
 import "./styles/globals.css";
 
 const PAGE_MAP: Record<PageId, React.FC<{ toast: any }>> = {
@@ -23,6 +24,7 @@ const PAGE_MAP: Record<PageId, React.FC<{ toast: any }>> = {
   risk: RiskPage,
   reports: ReportsPage,
   aiInsights: AiInsightsPage,
+  complianceQA: ComplianceQAPage,
 };
 
 function AuthenticatedApp() {
