@@ -2,18 +2,15 @@ import React from "react";
 import type { PageId } from "../../types/compliance.types";
 import type { User } from "../../types/compliance.types";
 import { Icons } from "../shared/Icons";
-import { INITIAL_GAPS } from "../../constants/mockData";
-import { PAGE_TITLES } from "../../constants/navigation";
+import { useGapCount } from "../../contexts/GapCountContext";
 
 interface NavEntry {
   id: PageId;
   label: string;
   Icon: React.FC<React.SVGProps<SVGSVGElement>>;
-  badge?: number;
   section?: string;
+  useLiveBadge?: boolean; // Flag to use live gap count
 }
-
-const openGaps = INITIAL_GAPS.filter((g) => g.status === "open").length;
 
 // Sparkle icon for AI Insights
 const SparkleIcon = (p: React.SVGProps<SVGSVGElement>) => (
@@ -60,7 +57,7 @@ const NAV_ITEMS: NavEntry[] = [
     id: "gaps",
     label: "Gap Analysis",
     Icon: Icons.AlertTriangle,
-    badge: openGaps,
+    useLiveBadge: true, // This will use real-time gap count
   },
   { id: "risk", label: "Risk Scoring", Icon: Icons.Risk },
   { id: "reports", label: "Reports", Icon: Icons.Report },
@@ -76,6 +73,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ page, setPage, user, onLogout }: SidebarProps) {
+  const { openGapCount } = useGapCount();
+
   return (
     <div className="sidebar">
       <div className="sidebar-logo">
@@ -89,34 +88,34 @@ export function Sidebar({ page, setPage, user, onLogout }: SidebarProps) {
       </div>
 
       <div className="sidebar-nav">
-        {NAV_ITEMS.map((n, idx) => (
-          <React.Fragment key={n.id}>
-            {/* Section label when section changes */}
-            {n.section && (
-              <div
-                className="sidebar-section-label"
-                style={{ marginTop: idx === 0 ? 8 : 16 }}
+        {NAV_ITEMS.map((n, idx) => {
+          // Use live gap count for gaps menu item
+          const badge = n.useLiveBadge ? openGapCount : undefined;
+
+          return (
+            <React.Fragment key={n.id}>
+              {/* Section label when section changes */}
+              {n.section && (
+                <div
+                  className="sidebar-section-label"
+                  style={{ marginTop: idx === 0 ? 8 : 16 }}
+                >
+                  {n.section}
+                </div>
+              )}
+              <button
+                className={`nav-item${page === n.id ? " active" : ""}${n.id === "aiInsights" || n.id === "complianceQA" ? " nav-item-ai" : ""}`}
+                onClick={() => setPage(n.id)}
               >
-                {n.section}
-              </div>
-            )}
-            <button
-              className={`nav-item${page === n.id ? " active" : ""}${n.id === "aiInsights" || n.id === "complianceQA" ? " nav-item-ai" : ""}`}
-              onClick={() => setPage(n.id)}
-            >
-              <n.Icon style={{ width: 16, height: 16 }} />
-              <span className="nav-item-label">{n.label}</span>
-              {n.badge ? <span className="nav-badge">{n.badge}</span> : null}
-              {/* {(n.id === 'aiInsights' || n.id === 'complianceQA') && page !== n.id && (
-                <span style={{
-                  marginLeft: 'auto', fontSize: 9, fontWeight: 700, padding: '2px 6px',
-                  borderRadius: 99, background: 'rgba(124,58,237,0.3)', color: '#C4B5FD',
-                  letterSpacing: '0.04em',
-                }}>AI</span>
-              )} */}
-            </button>
-          </React.Fragment>
-        ))}
+                <n.Icon style={{ width: 16, height: 16 }} />
+                <span className="nav-item-label">{n.label}</span>
+                {badge !== undefined && badge > 0 ? (
+                  <span className="nav-badge">{badge}</span>
+                ) : null}
+              </button>
+            </React.Fragment>
+          );
+        })}
       </div>
 
       <div className="sidebar-user">

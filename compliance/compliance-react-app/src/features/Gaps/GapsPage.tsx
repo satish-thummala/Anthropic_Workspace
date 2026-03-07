@@ -6,6 +6,7 @@ import type {
 } from "../../types/compliance.types";
 import { useGaps, useGapStats } from "../../hooks/useGaps";
 import { useFrameworks } from "../../hooks/useFrameworks";
+import { useGapCount } from "../../contexts/GapCountContext";
 import { gapAPI } from "../../services/gap-api";
 import { SEV_COLORS, SEV_BG, STATUS_MAP } from "../../constants/statusMaps";
 import { Icons } from "../../components/shared/Icons";
@@ -208,6 +209,7 @@ export function GapsPage({ toast }: Props) {
 
   const { stats, loading: statsLoading, reload: reloadStats } = useGapStats();
   const { frameworks } = useFrameworks();
+  const { refreshGapCount } = useGapCount();
 
   const filtered = useMemo(
     () =>
@@ -261,8 +263,8 @@ export function GapsPage({ toast }: Props) {
         toast(result.message || "Gap analysis complete", "success");
       }
 
-      // Reload gaps and stats to show updated data
-      await Promise.all([reload(), reloadStats()]);
+      // Reload gaps, stats, AND global gap count
+      await Promise.all([reload(), reloadStats(), refreshGapCount()]);
     } catch (error: any) {
       console.error("Gap analysis failed:", error);
       toast(
@@ -274,9 +276,10 @@ export function GapsPage({ toast }: Props) {
     }
   }
 
-  function handleGapUpdated(updated: ApiGap) {
+  async function handleGapUpdated(updated: ApiGap) {
     updateGapLocally(updated);
-    reloadStats();
+    // Refresh both local stats and global gap count
+    await Promise.all([reloadStats(), refreshGapCount()]);
   }
 
   if (loading && gaps.length === 0)

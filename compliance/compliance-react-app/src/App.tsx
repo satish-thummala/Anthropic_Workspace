@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { PageId } from "./types/compliance.types";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { GapCountProvider } from "./contexts/GapCountContext";
 import { AppLayout } from "./components/Layout/AppLayout";
 import { LoginPage } from "./components/Auth/LoginPage";
 import { SessionWarningModal } from "./components/Auth/SessionWarningModal";
@@ -32,10 +33,13 @@ function AuthenticatedApp() {
     useAuth();
   const [page, setPage] = useState<PageId>("dashboard");
   const { toasts, add: toast, dismiss } = useToast();
+  
   if (!user) return <LoginPage />;
+  
   const PageComponent = PAGE_MAP[page];
+  
   return (
-    <>
+    <GapCountProvider>
       <AppLayout page={page} setPage={setPage} user={user} onLogout={logout}>
         <PageComponent toast={toast} />
       </AppLayout>
@@ -49,7 +53,7 @@ function AuthenticatedApp() {
           onLogout={() => logout("user")}
         />
       )}
-    </>
+    </GapCountProvider>
   );
 }
 
