@@ -34,6 +34,9 @@ Or just run the full schema:
 mysql -u root -p < src/main/resources/schema.sql
 ```
 
+cd C:\Program Files\MySQL\MySQL Server 8.0\bin
+mysqld --console
+
 ---
 
 ## 2. Configure application.properties
