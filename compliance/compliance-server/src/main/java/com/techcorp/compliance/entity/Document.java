@@ -31,12 +31,11 @@ public class Document {
     @Column(nullable = false, length = 500)
     private String name;
 
-    // NEW: Original filename
     @Column(name = "filename", length = 500)
     private String filename;
 
-    @Column(name = "file_type", nullable = false, length = 50)
-    private String fileType;                    // MIME type or extension
+    @Column(name = "file_type", nullable = false, length = 100)
+    private String fileType;
 
     @Column(name = "file_size_bytes", nullable = false)
     @Builder.Default
@@ -44,23 +43,36 @@ public class Document {
 
     @Column(name = "file_size_label", nullable = false, length = 30)
     @Builder.Default
-    private String fileSizeLabel = "";          // e.g. "2.4 MB" — preformatted for UI
+    private String fileSizeLabel = "";
 
-    // NEW: Actual file URL (Cloudinary or local path)
     @Column(name = "file_url", length = 1000)
     private String fileUrl;
 
-    // NEW: Document description
     @Column(name = "description", length = 2000)
     private String description;
 
-    // NEW: Document type (policy, procedure, evidence, other)
     @Column(name = "type", length = 50)
     private String type;
 
-    // NEW: Framework IDs (comma-separated for simple queries)
     @Column(name = "framework_ids", length = 500)
-    private String frameworkIds;                // e.g. "ISO27001,SOC2,HIPAA"
+    private String frameworkIds;
+
+    // ── Text extraction (NEW) ─────────────────────────────────────────────────
+
+    /**
+     * Full plain text extracted by Apache Tika.
+     * Stored as MEDIUMTEXT (up to 16MB) — enough for any policy document.
+     * NULL if not yet extracted or extraction failed.
+     */
+    @Column(name = "extracted_text", columnDefinition = "MEDIUMTEXT")
+    private String extractedText;
+
+    /**
+     * Result of the last Tika extraction attempt.
+     * Values: SUCCESS | TRUNCATED | NO_TEXT | FAILED | null (not yet attempted)
+     */
+    @Column(name = "extraction_status", length = 20)
+    private String extractionStatus;
 
     // ── Status & analysis results ─────────────────────────────────────────────
     @Enumerated(EnumType.STRING)
@@ -69,9 +81,9 @@ public class Document {
     private Status status = Status.queued;
 
     @Column(name = "coverage_score")
-    private Integer coverageScore;              // null until analyzed, 0-100 after
+    private Integer coverageScore;
 
-    // ── Uploader (soft ref — no FK, user deletion must not cascade) ───────────
+    // ── Uploader ──────────────────────────────────────────────────────────────
     @Column(name = "uploaded_by_name", length = 100)
     private String uploadedByName;
 
@@ -88,7 +100,7 @@ public class Document {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    // ── Framework codes stored in join table ──────────────────────────────────
+    // ── Framework codes ───────────────────────────────────────────────────────
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
         name = "document_framework_mappings",
