@@ -2,36 +2,36 @@ package com.techcorp.compliance.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class DocumentDTOs {
 
-    // ── RESPONSE ──────────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════════════════════════
+    // OLD DTOs (for backward compatibility with existing code)
+    // ═════════════════════════════════════════════════════════════════════════
 
     /**
-     * Returned by every endpoint that returns a document.
-     * Field names match the existing React ComplianceDocument interface
-     * so the frontend needs minimal changes.
+     * OLD: Metadata-only upload request
+     * Used by: DocumentService.upload(UploadRequest req)
      */
-    @Data @Builder
-    public static class DocumentResponse {
-        private String       id;
-        private String       name;
-        private String       type;           // matches React: doc.type
-        private String       size;           // matches React: doc.size  e.g. "2.4 MB"
-        private String       status;         // queued | processing | analyzed | error
-        private Integer      coverageScore;  // null until analyzed
-        private List<String> frameworks;     // ["ISO27001","SOC2"]
-        private String       uploadedByName;
-        private String       uploadedAt;     // "2026-02-14"
-        private String       analyzedAt;     // null if not yet analyzed
+    @Data
+    @Builder
+    public static class UploadRequest {
+        private String name;
+        private Long fileSizeBytes;
+        private String fileSizeLabel;
+        private String uploadedByName;
     }
 
     /**
-     * GET /documents/stats — powers the Dashboard "Documents Ingested" card.
+     * OLD: Document statistics
+     * Used by: DocumentService.getStats()
      */
-    @Data @Builder
+    @Data
+    @Builder
     public static class DocumentStats {
         private int total;
         private int analyzed;
@@ -40,18 +40,84 @@ public class DocumentDTOs {
         private int error;
     }
 
-    // ── REQUESTS ──────────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════════════════════════
+    // NEW DTOs (for real file upload)
+    // ═════════════════════════════════════════════════════════════════════════
 
     /**
-     * POST /documents/upload
-     * Metadata-only upload — no actual file bytes (same Option-B pattern as mapping).
-     * React sends this when a user drops a file.
+     * NEW: Real file upload request (with actual file)
+     * Used by: DocumentService.uploadDocument(DocumentUploadRequest request)
      */
     @Data
-    public static class UploadRequest {
-        private String name;            // original filename e.g. "Security Policy.pdf"
-        private long   fileSizeBytes;
-        private String fileSizeLabel;   // pre-formatted: "2.4 MB"
+    @Builder
+    public static class DocumentUploadRequest {
+        private MultipartFile file;
+        private String name;
+        private String description;
+        private String frameworkIds; // Comma-separated (e.g., "ISO27001,SOC2")
+        private String type; // policy, procedure, evidence, other
+    }
+
+    /**
+     * Document Response (used by both old and new methods)
+     */
+    @Data
+    @Builder
+    public static class DocumentResponse {
+        // Basic fields
+        private String id;
+        private String name;
+        private String filename;
+        private String fileType;
+        private Long fileSize;
+        private String fileUrl;
+        private String description;
+        private String type;
+        
+        // Framework mapping
+        private List<String> frameworkIds;
+        private List<String> frameworks; // OLD format compatibility
+        
+        // Status fields (for old format)
+        private String status;
+        private Integer coverageScore;
         private String uploadedByName;
+        
+        // Timestamps
+        private LocalDateTime uploadedAt;
+        private String analyzedAt; // OLD format (String)
+        
+        // Display fields (for old format)
+        private String size; // Formatted size string
+    }
+
+    /**
+     * NEW: Download URL Response
+     */
+    @Data
+    @Builder
+    public static class DownloadUrlResponse {
+        private String documentId;
+        private String downloadUrl;
+        private String filename;
+    }
+
+    /**
+     * NEW: Document Stats Response (new format with type breakdown)
+     */
+    @Data
+    @Builder
+    public static class DocumentStatsResponse {
+        private int totalDocuments;
+        private TypeBreakdown byType;
+
+        @Data
+        @Builder
+        public static class TypeBreakdown {
+            private int policy;
+            private int procedure;
+            private int evidence;
+            private int other;
+        }
     }
 }

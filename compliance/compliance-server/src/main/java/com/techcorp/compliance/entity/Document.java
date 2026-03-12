@@ -13,7 +13,8 @@ import java.util.UUID;
     name = "documents",
     indexes = {
         @Index(name = "idx_docs_status",      columnList = "status"),
-        @Index(name = "idx_docs_uploaded_at", columnList = "uploaded_at")
+        @Index(name = "idx_docs_uploaded_at", columnList = "uploaded_at"),
+        @Index(name = "idx_docs_type",        columnList = "type")
     }
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -30,8 +31,12 @@ public class Document {
     @Column(nullable = false, length = 500)
     private String name;
 
-    @Column(name = "file_type", nullable = false, length = 20)
-    private String fileType;                    // PDF | DOCX | XLSX | TXT
+    // NEW: Original filename
+    @Column(name = "filename", length = 500)
+    private String filename;
+
+    @Column(name = "file_type", nullable = false, length = 50)
+    private String fileType;                    // MIME type or extension
 
     @Column(name = "file_size_bytes", nullable = false)
     @Builder.Default
@@ -40,6 +45,22 @@ public class Document {
     @Column(name = "file_size_label", nullable = false, length = 30)
     @Builder.Default
     private String fileSizeLabel = "";          // e.g. "2.4 MB" — preformatted for UI
+
+    // NEW: Actual file URL (Cloudinary or local path)
+    @Column(name = "file_url", length = 1000)
+    private String fileUrl;
+
+    // NEW: Document description
+    @Column(name = "description", length = 2000)
+    private String description;
+
+    // NEW: Document type (policy, procedure, evidence, other)
+    @Column(name = "type", length = 50)
+    private String type;
+
+    // NEW: Framework IDs (comma-separated for simple queries)
+    @Column(name = "framework_ids", length = 500)
+    private String frameworkIds;                // e.g. "ISO27001,SOC2,HIPAA"
 
     // ── Status & analysis results ─────────────────────────────────────────────
     @Enumerated(EnumType.STRING)

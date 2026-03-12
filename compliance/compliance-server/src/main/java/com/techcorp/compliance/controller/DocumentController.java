@@ -5,86 +5,176 @@ import com.techcorp.compliance.service.DocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+/**
+ * Document Management Controller
+ * 
+ * Endpoints:
+ * - POST   /api/v1/documents/upload - Upload a document
+ * - GET    /api/v1/documents - Get all documents
+ * - GET    /api/v1/documents/{id} - Get single document
+ * - DELETE /api/v1/documents/{id} - Delete document
+ * - GET    /api/v1/documents/{id}/download - Get download URL
+ */
 @RestController
 @RequestMapping("/api/v1/documents")
 @RequiredArgsConstructor
 @Slf4j
 public class DocumentController {
 
-    private final DocumentService docService;
+    private final DocumentService documentService;
 
-    // ── GET /api/v1/documents ─────────────────────────────────────────────────
     /**
-     * All documents, newest first.
-     * Optional: ?keyword=security  → filters by name
-     *
-     * React: DocumentsPage table
+     * Upload a new document
+     * 
+     * POST /api/v1/documents/upload
+     * Content-Type: multipart/form-data
+     * 
+     * Form fields:
+     * - file: The document file (required)
+     * - name: Document name (optional, defaults to filename)
+     * - description: Document description (optional)
+     * - frameworkIds: Comma-separated framework IDs (optional)
+     * - type: Document type (optional: policy, procedure, evidence, other)
+     * 
+     * Example using curl:
+     * curl -X POST http://localhost:8080/api/v1/documents/upload \
+     *   -H "Authorization: Bearer {token}" \
+     *   -F "file=@/path/to/policy.pdf" \
+     *   -F "name=Security Policy" \
+     *   -F "frameworkIds=ISO27001,SOC2" \
+     *   -F "type=policy"
+     */
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DocumentResponse> uploadDocument(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "frameworkIds", required = false) String frameworkIds,
+            @RequestParam(value = "type", required = false) String type
+    ) {
+        log.info("Uploading document: {} ({})", file.getOriginalFilename(), file.getSize());
+        
+        try {
+            // Validate file
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            // Build request
+            DocumentUploadRequest request = DocumentUploadRequest.builder()
+                    .file(file)
+                    .name(name != null ? name : file.getOriginalFilename())
+                    .description(description)
+                    .frameworkIds(frameworkIds)
+                    .type(type)
+                    .build();
+            
+            // Upload
+            DocumentResponse response = documentService.uploadDocument(request);
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            
+        } catch (Exception e) {
+            log.error("Failed to upload document", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get all documents
+     * 
+     * GET /api/v1/documents
+     * 
+     * Optional query parameters:
+     * - framework: Filter by framework code (e.g., ISO27001)
+     * - type: Filter by document type (policy, procedure, evidence, other)
      */
     @GetMapping
-    public ResponseEntity<List<DocumentResponse>> getAll(
-            @RequestParam(required = false) String keyword) {
-        return ResponseEntity.ok(docService.getAll(keyword));
+    public ResponseEntity<List<DocumentResponse>> getAllDocuments(
+            @RequestParam(value = "framework", required = false) String framework,
+            @RequestParam(value = "type", required = false) String type
+    ) {
+        log.info("Getting all documents (framework={}, type={})", framework, type);
+        List<DocumentResponse> documents = documentService.getAllDocuments(framework, type);
+        return ResponseEntity.ok(documents);
     }
 
-    // ── GET /api/v1/documents/stats ───────────────────────────────────────────
     /**
-     * Returns { total, analyzed, processing, queued, error }
-     *
-     * React: Dashboard "Documents Ingested" stat card
+     * Get single document by ID
+     * 
+     * GET /api/v1/documents/{id}
      */
-    @GetMapping("/stats")
-    public ResponseEntity<DocumentStats> getStats() {
-        return ResponseEntity.ok(docService.getStats());
-    }
-
-    // ── GET /api/v1/documents/{id} ────────────────────────────────────────────
     @GetMapping("/{id}")
-    public ResponseEntity<DocumentResponse> getById(@PathVariable String id) {
-        return ResponseEntity.ok(docService.getById(id));
+    public ResponseEntity<DocumentResponse> getDocument(@PathVariable String id) {
+        log.info("Getting document: {}", id);
+        return documentService.getDocumentById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // ── POST /api/v1/documents/upload ─────────────────────────────────────────
     /**
-     * Registers a document in 'queued' state (metadata only, no file bytes).
-     *
-     * Body: { name, fileSizeBytes, fileSizeLabel, uploadedByName }
-     *
-     * React: drop zone / file picker in DocumentsPage
-     */
-    @PostMapping("/upload")
-    public ResponseEntity<DocumentResponse> upload(@RequestBody UploadRequest req) {
-        log.info("POST /documents/upload — {}", req.getName());
-        return ResponseEntity.status(HttpStatus.CREATED).body(docService.upload(req));
-    }
-
-    // ── POST /api/v1/documents/{id}/analyze ───────────────────────────────────
-    /**
-     * Runs simulated analysis: assigns frameworks + coverage score.
-     * Transitions: queued | error → processing → analyzed
-     *
-     * React: Play button on each document row
-     */
-    @PostMapping("/{id}/analyze")
-    public ResponseEntity<DocumentResponse> analyze(@PathVariable String id) {
-        log.info("POST /documents/{}/analyze", id);
-        return ResponseEntity.ok(docService.analyze(id));
-    }
-
-    // ── DELETE /api/v1/documents/{id} ─────────────────────────────────────────
-    /**
-     * Permanently deletes the document record.
-     *
-     * React: Trash icon on each document row
+     * Delete a document
+     * 
+     * DELETE /api/v1/documents/{id}
+     * 
+     * This will:
+     * 1. Delete the file from storage (Cloudinary/Local)
+     * 2. Delete the database record
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String id) {
-        log.info("DELETE /documents/{}", id);
-        docService.delete(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deleteDocument(@PathVariable String id) {
+        log.info("Deleting document: {}", id);
+        
+        try {
+            documentService.deleteDocument(id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.error("Failed to delete document: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get download URL for a document
+     * 
+     * GET /api/v1/documents/{id}/download
+     * 
+     * Returns a direct download URL that can be used in:
+     * - <a href="{url}" download>Download</a>
+     * - window.open(url)
+     */
+    @GetMapping("/{id}/download")
+    public ResponseEntity<DownloadUrlResponse> getDownloadUrl(@PathVariable String id) {
+        log.info("Getting download URL for document: {}", id);
+        
+        return documentService.getDocumentById(id)
+                .map(doc -> {
+                    String downloadUrl = documentService.getDownloadUrl(doc.getFileUrl());
+                    return ResponseEntity.ok(DownloadUrlResponse.builder()
+                            .documentId(doc.getId())
+                            .downloadUrl(downloadUrl)
+                            .filename(doc.getFilename())
+                            .build());
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Get document statistics
+     * 
+     * GET /api/v1/documents/stats
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<DocumentStatsResponse> getStats() {
+        log.info("Getting document statistics");
+        DocumentStatsResponse stats = documentService.getDocumentStats();
+        return ResponseEntity.ok(stats);
     }
 }

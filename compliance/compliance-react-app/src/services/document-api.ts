@@ -1,60 +1,106 @@
-import apiClient from './api-client';
-import type { ApiDocument, ApiDocumentStats } from '../types/compliance.types';
+import apiClient from "./api-client";
+import type { ApiDocument } from "../types/compliance.types";
+
+// ── Document API ──────────────────────────────────────────────────────────────
 
 export const documentAPI = {
+  /**
+   * OLD: Metadata-only upload (kept for backward compatibility)
+   */
+  upload: async (req: {
+    name: string;
+    fileSizeBytes: number;
+    fileSizeLabel: string;
+    uploadedByName: string;
+  }): Promise<ApiDocument> => {
+    const { data } = await apiClient.post("/documents/upload", req);
+    return data;
+  },
 
   /**
-   * GET /api/v1/documents
-   * All documents, newest-first. Optional ?keyword= for name search.
-   * React: DocumentsPage table
+   * NEW: Real file upload with multipart/form-data
    */
-  getAll: async (keyword?: string): Promise<ApiDocument[]> => {
-    const { data } = await apiClient.get<ApiDocument[]>('/documents', {
-      params: keyword ? { keyword } : undefined,
+  uploadDocument: async (
+    file: File,
+    metadata: {
+      name?: string;
+      description?: string;
+      type?: string;
+      frameworkIds?: string;
+    },
+  ): Promise<ApiDocument> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Add metadata fields
+    if (metadata.name) formData.append("name", metadata.name);
+    if (metadata.description)
+      formData.append("description", metadata.description);
+    if (metadata.type) formData.append("type", metadata.type);
+    if (metadata.frameworkIds)
+      formData.append("frameworkIds", metadata.frameworkIds);
+
+    const { data } = await apiClient.post("/documents/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
     return data;
   },
 
   /**
-   * GET /api/v1/documents/stats
-   * { total, analyzed, processing, queued, error }
-   * React: Dashboard "Documents Ingested" stat card
+   * Get all documents with optional search
    */
-  getStats: async (): Promise<ApiDocumentStats> => {
-    const { data } = await apiClient.get<ApiDocumentStats>('/documents/stats');
+  getAll: async (keyword?: string): Promise<ApiDocument[]> => {
+    const params = keyword ? { keyword } : {};
+    const { data } = await apiClient.get("/documents", { params });
     return data;
   },
 
   /**
-   * POST /api/v1/documents/upload
-   * Registers a new document (metadata only — no file bytes).
-   * React: drop zone / file picker
+   * Get single document by ID
    */
-  upload: async (payload: {
-    name:           string;
-    fileSizeBytes:  number;
-    fileSizeLabel:  string;
-    uploadedByName: string;
-  }): Promise<ApiDocument> => {
-    const { data } = await apiClient.post<ApiDocument>('/documents/upload', payload);
+  getById: async (id: string): Promise<ApiDocument> => {
+    const { data } = await apiClient.get(`/documents/${id}`);
     return data;
   },
 
   /**
-   * POST /api/v1/documents/{id}/analyze
-   * Runs analysis: assigns frameworks + coverage score.
-   * React: Play button on each row
+   * Analyze a document
    */
   analyze: async (id: string): Promise<ApiDocument> => {
-    const { data } = await apiClient.post<ApiDocument>(`/documents/${id}/analyze`);
+    const { data } = await apiClient.post(`/documents/${id}/analyze`);
     return data;
   },
 
   /**
-   * DELETE /api/v1/documents/{id}
-   * React: Trash icon on each row
+   * Delete a document
    */
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/documents/${id}`);
+  },
+
+  /**
+   * Get download URL for a document
+   */
+  getDownloadUrl: async (
+    id: string,
+  ): Promise<{ downloadUrl: string; filename: string }> => {
+    const { data } = await apiClient.get(`/documents/${id}/download`);
+    return data;
+  },
+
+  /**
+   * Get document statistics
+   */
+  getStats: async (): Promise<{
+    total: number;
+    analyzed: number;
+    processing: number;
+    queued: number;
+    error: number;
+  }> => {
+    const { data } = await apiClient.get("/documents/stats");
+    return data;
   },
 };

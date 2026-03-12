@@ -14,11 +14,6 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
-function fileExt(name: string): string {
-  const dot = name.lastIndexOf('.');
-  return dot < 0 ? 'FILE' : name.substring(dot + 1).toUpperCase();
-}
-
 function userName(): string {
   try {
     const u = JSON.parse(localStorage.getItem('compliance_user') ?? '{}');
@@ -61,22 +56,25 @@ export function DocumentsPage({ toast }: Props) {
   }, [search, load]);
 
   // ── upload ────────────────────────────────────────────────────────────────
+  // UPDATED: Now sends actual file to backend
   async function handleFiles(files: FileList) {
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
-        const label = formatBytes(file.size);
-        const doc = await documentAPI.upload({
-          name:           file.name,
-          fileSizeBytes:  file.size,
-          fileSizeLabel:  label,
-          uploadedByName: userName(),
+        // Real file upload with multipart/form-data
+        const doc = await documentAPI.uploadDocument(file, {
+          name: file.name,
+          description: `Uploaded by ${userName()}`,
+          type: 'other', // You can make this smarter based on filename
+          frameworkIds: '', // Empty for now, can be set later
         });
+        
         // Prepend so new doc appears at top without a full reload
         setDocs(prev => [doc, ...prev]);
-        toast(`${file.name} uploaded — queued for analysis`, 'success');
+        toast(`${file.name} uploaded successfully`, 'success');
       }
-    } catch {
+    } catch (err) {
+      console.error('Upload failed:', err);
       toast('Upload failed', 'error');
     } finally {
       setUploading(false);
@@ -265,9 +263,9 @@ export function DocumentsPage({ toast }: Props) {
                       {/* Size */}
                       <td style={{ color: 'var(--text2)' }}>{doc.size}</td>
 
-                      {/* Frameworks */}
+                      {/* Frameworks - FIXED: Added null check */}
                       <td>
-                        {doc.frameworks.length === 0
+                        {!doc.frameworks || doc.frameworks.length === 0
                           ? <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
                           : doc.frameworks.map(f => <span key={f} className="fw-badge">{f}</span>)
                         }
@@ -275,7 +273,7 @@ export function DocumentsPage({ toast }: Props) {
 
                       {/* Coverage bar */}
                       <td>
-                        {doc.coverageScore !== null ? (
+                        {doc.coverageScore !== null && doc.coverageScore !== undefined ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 60, height: 5, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
                               <div style={{
@@ -299,7 +297,9 @@ export function DocumentsPage({ toast }: Props) {
                       </td>
 
                       {/* Uploaded date */}
-                      <td style={{ color: 'var(--text2)', fontSize: 12 }}>{doc.uploadedAt}</td>
+                      <td style={{ color: 'var(--text2)', fontSize: 12 }}>
+                        {doc.uploadedAt || '—'}
+                      </td>
 
                       {/* Actions */}
                       <td>
