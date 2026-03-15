@@ -104,3 +104,6 @@ docker-compose.override.yml
 *.swo
 *~
 .cache/
+
+# ─── Temporary Application Files ──────────────────────────────────────────────────────────
+Sample_Compliance_Documents/

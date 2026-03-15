@@ -2,6 +2,8 @@ package com.techcorp.compliance.repository;
 
 import com.techcorp.compliance.entity.Control;
 import com.techcorp.compliance.entity.Control.Severity;
+import com.techcorp.compliance.entity.Framework;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,7 +28,9 @@ public interface ControlRepository extends JpaRepository<Control, String> {
 
     // Counts for stats refresh
     long countByFrameworkId(String frameworkId);
+
     long countByFrameworkIdAndIsCoveredTrue(String frameworkId);
+
     long countByFrameworkIdAndIsCoveredFalseAndSeverity(String frameworkId, Severity severity);
 
     // Duplicate check
@@ -38,13 +42,13 @@ public interface ControlRepository extends JpaRepository<Control, String> {
 
     // Keyword search across code, title, description
     @Query("""
-        SELECT c FROM Control c
-        WHERE c.framework.id = :frameworkId
-          AND (LOWER(c.code)        LIKE LOWER(CONCAT('%', :kw, '%'))
-            OR LOWER(c.title)       LIKE LOWER(CONCAT('%', :kw, '%'))
-            OR LOWER(c.description) LIKE LOWER(CONCAT('%', :kw, '%')))
-        ORDER BY c.displayOrder ASC
-        """)
+            SELECT c FROM Control c
+            WHERE c.framework.id = :frameworkId
+              AND (LOWER(c.code)        LIKE LOWER(CONCAT('%', :kw, '%'))
+                OR LOWER(c.title)       LIKE LOWER(CONCAT('%', :kw, '%'))
+                OR LOWER(c.description) LIKE LOWER(CONCAT('%', :kw, '%')))
+            ORDER BY c.displayOrder ASC
+            """)
     List<Control> searchByKeyword(@Param("frameworkId") String frameworkId, @Param("kw") String kw);
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -75,4 +79,6 @@ public interface ControlRepository extends JpaRepository<Control, String> {
      */
     @Query("SELECT c FROM Control c WHERE c.isCovered = false AND c.framework.id = :frameworkId")
     List<Control> findUncoveredByFrameworkId(@Param("frameworkId") String frameworkId);
+
+    List<Control> findByFramework(Framework framework);
 }

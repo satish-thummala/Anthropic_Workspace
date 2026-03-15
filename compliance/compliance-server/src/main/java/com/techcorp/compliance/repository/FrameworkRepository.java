@@ -17,4 +17,6 @@ public interface FrameworkRepository extends JpaRepository<Framework, String> {
 
     @Query("SELECT f FROM Framework f WHERE f.isActive = true ORDER BY f.code ASC")
     List<Framework> findAllActiveOrderByCode();
+
+    Optional<Framework> findByName(String frameworkId);
 }
