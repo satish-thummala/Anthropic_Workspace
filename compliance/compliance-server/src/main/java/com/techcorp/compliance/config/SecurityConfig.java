@@ -49,7 +49,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/v1/auth/login",
                     "/api/v1/auth/refresh",
-                    "/actuator/health"
+                    "/actuator/health",
+                    "/files/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

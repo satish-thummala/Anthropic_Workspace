@@ -6,6 +6,7 @@ import { useGapCount } from '../../contexts/GapCountContext';
 import { STATUS_MAP } from '../../constants/statusMaps';
 import { Icons } from '../../components/shared/Icons';
 import { GapDetectionResultsPanel } from './GapDetectionResultsPanel';
+import { FilePreviewModal } from './FilePreviewModal';
 
 interface Props { toast: ToastFn; }
 
@@ -65,6 +66,7 @@ export function DocumentsPage({ toast }: Props) {
   const [pendingFile,   setPendingFile]   = useState<File | null>(null);
   const [docType,       setDocType]       = useState('policy');
   const [docFrameworks, setDocFrameworks] = useState('');
+  const [previewFile, setPreviewFile] = useState<{url: string; name: string; type: string; } | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -127,6 +129,14 @@ export function DocumentsPage({ toast }: Props) {
       toast(`${name} re-analyzed — coverage ${updated.coverageScore}%`, 'success');
     } catch { toast('Re-analysis failed', 'error'); }
     finally  { setAnalyzing(null); }
+  }
+
+  async function handlePreview(doc: ApiDocument) {
+    setPreviewFile({
+      url: doc.fileUrl,
+      name: doc.name,
+      type: doc.fileType,
+    });
   }
 
   // ── Gap detection — calls backend NLP pipeline, refreshes sidebar badge ───
@@ -459,8 +469,16 @@ export function DocumentsPage({ toast }: Props) {
                               </button>
                             )}
 
-                            <button className="icon-btn" onClick={() => toast(`Viewing ${doc.name}`, 'info')} title="View"><Icons.Eye /></button>
+                            <button className="icon-btn" onClick={() => handlePreview(doc)} title="Preview Document" style={{ background: '#f3f4f6', color: '#374151' }}><Icons.Eye /></button>
                             <button className="icon-btn btn-danger" onClick={() => handleDelete(doc.id, doc.name)} title="Delete"><Icons.Trash /></button>
+                            {previewFile && (
+                              <FilePreviewModal
+                                fileUrl={previewFile.url}
+                                fileName={previewFile.name}
+                                fileType={previewFile.type}
+                                onClose={() => setPreviewFile(null)}
+                              />
+                            )}
                           </div>
                         </td>
                       </tr>
