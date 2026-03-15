@@ -211,5 +211,5 @@ public interface GapRepository extends JpaRepository<Gap, String> {
             """)
     List<Gap> findAllActive();
 
-    Optional<Gap> findByControlId(String controlId);
+    List<Gap> findByControlId(String controlId);
 }

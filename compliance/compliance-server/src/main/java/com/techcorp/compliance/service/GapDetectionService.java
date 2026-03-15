@@ -259,7 +259,7 @@ public class GapDetectionService {
         // .stream()
         // .anyMatch(g -> g.getStatus() == Gap.GapStatus.open
         // || g.getStatus() == Gap.GapStatus.in_progress);
-        Optional<Gap> existingGaps = gapRepository.findByControlId(control.getId());
+        List<Gap> existingGaps = gapRepository.findByControlId(control.getId());
         boolean activeGapExists = existingGaps.stream()
                 .anyMatch(g -> g.getStatus() == Gap.GapStatus.open
                         || g.getStatus() == Gap.GapStatus.in_progress);
