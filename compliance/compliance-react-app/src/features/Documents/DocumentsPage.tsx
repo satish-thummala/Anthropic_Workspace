@@ -7,6 +7,7 @@ import { STATUS_MAP } from '../../constants/statusMaps';
 import { Icons } from '../../components/shared/Icons';
 import { GapDetectionResultsPanel } from './GapDetectionResultsPanel';
 import { FilePreviewModal } from './FilePreviewModal';
+import { FrameworkPicker } from './FrameworkPicker';
 
 interface Props { toast: ToastFn; }
 
@@ -65,7 +66,7 @@ export function DocumentsPage({ toast }: Props) {
   const [gapResults,    setGapResults]    = useState<Record<string, GapDetectionResponse>>({});
   const [pendingFile,   setPendingFile]   = useState<File | null>(null);
   const [docType,       setDocType]       = useState('policy');
-  const [docFrameworks, setDocFrameworks] = useState('');
+  const [docFrameworks, setDocFrameworks] = useState<string[]>([]);
   const [previewFile, setPreviewFile] = useState<{url: string; name: string; type: string; } | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -93,13 +94,13 @@ export function DocumentsPage({ toast }: Props) {
     if (!files?.length) return;
     setPendingFile(files[0]);
     setDocType('policy');
-    setDocFrameworks('');
+    setDocFrameworks([]);
   }
 
   function cancelUpload() {
     setPendingFile(null);
     setDocType('policy');
-    setDocFrameworks('');
+    setDocFrameworks([]);
     if (fileRef.current) fileRef.current.value = '';
   }
 
@@ -111,7 +112,7 @@ export function DocumentsPage({ toast }: Props) {
         name: pendingFile.name,
         description: `Uploaded by ${userName()}`,
         type: docType,
-        frameworkIds: docFrameworks,
+        frameworkIds: docFrameworks.join(','),
       });
       setDocs(prev => [doc, ...prev]);
       toast(`${pendingFile.name} uploaded & text extracted`, 'success');
@@ -285,17 +286,27 @@ export function DocumentsPage({ toast }: Props) {
                 </div>
               </div>
 
-              {/* Framework hint */}
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontWeight: 600, marginBottom: 8, fontSize: 13 }}>
-                  Framework Hint <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional — Tika auto-detects from content)</span>
+              {/* Framework picker */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: 8,
+                }}>
+                  Frameworks <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
                 </label>
-                <input
-                  type="text" value={docFrameworks} onChange={e => setDocFrameworks(e.target.value)}
-                  placeholder="e.g. ISO27001,SOC2"
-                  style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'var(--mono)' }}
+                <FrameworkPicker
+                  selectedCodes={docFrameworks}
+                  onChange={setDocFrameworks}
+                  disabled={uploading}
                 />
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>
+                  💡 Select expected frameworks or leave blank for auto-detection from content
+                </div>
               </div>
+
 
               {/* Action buttons */}
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
