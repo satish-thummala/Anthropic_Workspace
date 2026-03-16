@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { ToastFn } from '../../types/compliance.types';
+import type { ToastFn, ApiDocument } from '../../types/compliance.types';
 import {
   policyAPI,
   type PolicyTypeInfo,
@@ -163,6 +163,8 @@ export function PolicyGeneratorPage({ toast }: Props) {
   const [loading,        setLoading]        = useState(false);
   const [result,         setResult]         = useState<PolicyGenerateResponse | null>(null);
   const [copied,         setCopied]         = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [savedDoc,       setSavedDoc]       = useState<ApiDocument | null>(null);
 
   // Load policy types on mount
   useEffect(() => {
@@ -176,6 +178,7 @@ export function PolicyGeneratorPage({ toast }: Props) {
     if (!selectedType) { toast('Please select a policy type', 'error'); return; }
     setLoading(true);
     setResult(null);
+    setSavedDoc(null);
     try {
       const response = await policyAPI.generate({
         type:          selectedType as PolicyTypeId,
@@ -219,6 +222,32 @@ export function PolicyGeneratorPage({ toast }: Props) {
     a.click();
     URL.revokeObjectURL(url);
     toast('Policy downloaded as Markdown', 'success');
+  }
+
+  // ── Save to Documents — closes the loop with gap detection ────────────────
+  async function handleSaveToDocuments() {
+    if (!result || saving) return;
+
+    setSaving(true);
+    try {
+      // Get the logged-in user's name from localStorage (same pattern as DocumentsPage)
+      let savedByName = 'Policy Generator';
+      try {
+        const u = JSON.parse(localStorage.getItem('compliance_user') ?? '{}');
+        if (u?.name) savedByName = u.name;
+      } catch { /* keep default */ }
+
+      const doc = await policyAPI.saveToDocuments(result, savedByName);
+      setSavedDoc(doc);
+      toast(
+        `Policy saved to Documents — run "Analyze for Gaps" on it to verify coverage`,
+        'success',
+      );
+    } catch {
+      toast('Failed to save policy to Documents', 'error');
+    } finally {
+      setSaving(false);
+    }
   }
 
   // ── Selected type info ─────────────────────────────────────────────────────
@@ -378,8 +407,34 @@ export function PolicyGeneratorPage({ toast }: Props) {
                   <Icons.Download style={{ width: 13, height: 13 }} />
                   Download .md
                 </button>
+                {/* Save to Documents — closes the loop with gap detection */}
+                {savedDoc ? (
+                  <button
+                    disabled
+                    className="btn btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', cursor: 'default' }}
+                    title="Already saved to Documents"
+                  >
+                    <Icons.Check style={{ width: 13, height: 13 }} />
+                    Saved to Docs
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSaveToDocuments}
+                    disabled={saving}
+                    className="btn btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+                    title="Save to Documents module — enables gap detection on this policy"
+                  >
+                    {saving
+                      ? <span style={{ width: 11, height: 11, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                      : <Icons.Upload style={{ width: 13, height: 13 }} />
+                    }
+                    {saving ? 'Saving…' : 'Save to Docs'}
+                  </button>
+                )}
                 <button
-                  onClick={() => setResult(null)}
+                  onClick={() => { setResult(null); setSavedDoc(null); }}
                   className="btn btn-secondary btn-sm"
                   style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
                   title="Clear and generate a new policy"
@@ -389,6 +444,30 @@ export function PolicyGeneratorPage({ toast }: Props) {
                 </button>
               </div>
             </div>
+
+            {/* Saved to Documents confirmation banner */}
+            {savedDoc && (
+              <div style={{
+                margin: '0',
+                padding: '12px 20px',
+                background: '#F0FDF4',
+                borderBottom: '1px solid #BBF7D0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}>
+                <Icons.Check style={{ width: 16, height: 16, color: '#16A34A', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#15803D' }}>
+                    Saved to Documents
+                  </span>
+                  <span style={{ fontSize: 12, color: '#166534', marginLeft: 8 }}>
+                    Go to the Documents page, find <strong>{savedDoc.name}</strong>, and click
+                    <strong> "Analyze for Gaps"</strong> to verify this policy covers the right controls.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Rendered policy content */}
             <div style={{ padding: '24px 28px', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>

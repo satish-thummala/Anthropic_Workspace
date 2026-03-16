@@ -289,16 +289,30 @@ export interface ApiRiskHistory {
 // ─── DOCUMENT API SHAPES (Spring Boot /api/v1/documents) ─────────────────────
 
 export interface ApiDocument {
-  id: string;
-  name: string;
-  type: string; // PDF | DOCX | XLSX | TXT
-  size: string; // "2.4 MB"
-  status: "queued" | "processing" | "analyzed" | "error";
-  coverageScore: number | null;
-  frameworks: string[]; // ["ISO27001","SOC2"]
-  uploadedByName: string | null;
-  uploadedAt: string; // "2026-02-14"
-  analyzedAt: string | null;
+  // Core identity
+  id:               string;
+  name:             string;
+  filename:         string | null;      // original filename from upload
+  // File info
+  fileType:         string;             // MIME type e.g. "text/markdown", "application/pdf"
+  fileSize:         number | null;      // bytes
+  fileUrl:          string | null;      // URL for preview/download
+  description:      string | null;
+  type:             string;             // "policy" | "procedure" | "evidence" | "other"
+  size:             string;             // formatted e.g. "2.4 MB" (old compat field)
+  // Frameworks
+  frameworks:       string[];           // ["ISO27001","SOC2"]
+  frameworkIds:     string[] | null;    // same data, alternate field name
+  // Status & scoring
+  status:           'queued' | 'processing' | 'analyzed' | 'error';
+  coverageScore:    number | null;
+  // Tika extraction info
+  extractionStatus: string | null;      // SUCCESS | TRUNCATED | NO_TEXT | FAILED | null
+  charCount:        number;             // characters extracted (0 if not yet extracted)
+  // Metadata
+  uploadedByName:   string | null;
+  uploadedAt:       string;             // ISO datetime or "yyyy-MM-dd"
+  analyzedAt:       string | null;      // "yyyy-MM-dd"
 }
 
 export interface ApiDocumentStats {

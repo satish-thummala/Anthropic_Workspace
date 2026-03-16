@@ -75,6 +75,25 @@ public class PolicyDTOs {
         private LocalDateTime generatedAt;
     }
 
+    // ── Save to Documents request ─────────────────────────────────────────────
+
+    /**
+     * Request body for POST /api/v1/ai/policy/save
+     * Contains the full generated policy to persist as a Document record.
+     */
+    @Data
+    public static class PolicySaveRequest {
+        private String title;
+        private String content;
+        private String policyType;
+        private String policyTypeLabel;
+        private String framework;
+        private String orgName;
+        private String engine;
+        /** Optional — who triggered the save. Shown in Documents as uploadedByName. */
+        private String savedByName;
+    }
+
     // ── Policy type metadata (returned by GET /types) ─────────────────────────
 
     @Data

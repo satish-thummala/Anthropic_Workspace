@@ -2,6 +2,7 @@ package com.techcorp.compliance.ai.controller;
 
 import com.techcorp.compliance.ai.dto.PolicyDTOs.*;
 import com.techcorp.compliance.ai.service.PolicyGeneratorService;
+import com.techcorp.compliance.dto.DocumentDTOs.DocumentResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -92,8 +93,53 @@ public class PolicyController {
      * Use this to populate the policy type picker in the UI.
      */
     @GetMapping("/types")
-    public ResponseEntity<List<PolicyTypeInfo>> getTypes() {
+    public ResponseEntity<java.util.List<PolicyTypeInfo>> getTypes() {
         log.info("GET /ai/policy/types");
         return ResponseEntity.ok(policyService.getSupportedTypes());
+    }
+
+    /**
+     * POST /api/v1/ai/policy/save
+     *
+     * Saves a generated policy document into the Documents module so it:
+     *   - Appears in the Documents page
+     *   - Gets Tika text extraction (instant — markdown is plain text)
+     *   - Gets framework codes set for gap detection
+     *   - Can be analyzed by gap detection to verify it covers the right controls
+     *
+     * Request body: the full PolicyGenerateResponse echoed back with an
+     * optional savedByName field added.
+     *
+     * Response: the created Document record (same shape as DocumentResponse).
+     */
+    @PostMapping("/save")
+    public ResponseEntity<DocumentResponse> saveToDocuments(
+            @RequestBody PolicySaveRequest request) {
+
+        log.info("POST /ai/policy/save title={} framework={} by={}",
+                request.getTitle(), request.getFramework(), request.getSavedByName());
+
+        try {
+            // Reconstruct a PolicyGenerateResponse from the save request
+            // so we can reuse PolicyGeneratorService.saveToDocuments()
+            PolicyGenerateResponse policy = PolicyGenerateResponse.builder()
+                    .title(request.getTitle())
+                    .content(request.getContent())
+                    .policyType(request.getPolicyType())
+                    .policyTypeLabel(request.getPolicyTypeLabel())
+                    .framework(request.getFramework())
+                    .orgName(request.getOrgName())
+                    .engine(request.getEngine())
+                    .generatedAt(java.time.LocalDateTime.now())
+                    .build();
+
+            DocumentResponse saved = policyService.saveToDocuments(policy, request.getSavedByName());
+            log.info("Policy saved to Documents: id={}", saved.getId());
+            return ResponseEntity.ok(saved);
+
+        } catch (Exception e) {
+            log.error("Failed to save policy to Documents", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

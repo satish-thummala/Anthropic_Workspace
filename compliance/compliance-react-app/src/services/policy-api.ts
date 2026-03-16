@@ -1,4 +1,5 @@
 import apiClient from './api-client';
+import type { ApiDocument } from '../types/compliance.types';
 
 // ── Request / Response shapes (mirror PolicyDTOs.java exactly) ────────────────
 
@@ -29,6 +30,18 @@ export interface PolicyGenerateResponse {
   generatedAt:     string;
 }
 
+/** Request body for POST /api/v1/ai/policy/save */
+export interface PolicySaveRequest {
+  title:           string;
+  content:         string;
+  policyType:      string;
+  policyTypeLabel: string;
+  framework:       string;
+  orgName:         string;
+  engine:          string;
+  savedByName?:    string;
+}
+
 export interface PolicyTypeInfo {
   id:                   PolicyTypeId;
   label:                string;
@@ -52,6 +65,35 @@ export const policyAPI = {
       '/ai/policy/generate',
       req,
     );
+    return data;
+  },
+
+  /**
+   * POST /api/v1/ai/policy/save
+   *
+   * Saves a generated policy as a Document record.
+   * The document will:
+   *   - Appear in the Documents page (status = analyzed)
+   *   - Have its text indexed (Tika runs on the markdown content)
+   *   - Be available for gap detection to verify coverage
+   *
+   * Returns the created ApiDocument.
+   */
+  saveToDocuments: async (
+    policy: PolicyGenerateResponse,
+    savedByName?: string,
+  ): Promise<ApiDocument> => {
+    const req: PolicySaveRequest = {
+      title:           policy.title,
+      content:         policy.content,
+      policyType:      policy.policyType,
+      policyTypeLabel: policy.policyTypeLabel,
+      framework:       policy.framework,
+      orgName:         policy.orgName,
+      engine:          policy.engine,
+      savedByName,
+    };
+    const { data } = await apiClient.post<ApiDocument>('/ai/policy/save', req);
     return data;
   },
 

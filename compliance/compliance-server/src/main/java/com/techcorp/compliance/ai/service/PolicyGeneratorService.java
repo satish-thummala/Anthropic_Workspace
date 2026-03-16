@@ -2,15 +2,23 @@ package com.techcorp.compliance.ai.service;
 
 import com.techcorp.compliance.ai.dto.PolicyDTOs.*;
 import com.techcorp.compliance.ai.groq.client.GroqClient;
+import com.techcorp.compliance.dto.DocumentDTOs.DocumentResponse;
 import com.techcorp.compliance.entity.Framework;
 import com.techcorp.compliance.entity.Gap;
 import com.techcorp.compliance.repository.FrameworkRepository;
 import com.techcorp.compliance.repository.GapRepository;
+import com.techcorp.compliance.service.DocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -36,6 +44,7 @@ public class PolicyGeneratorService {
     private final GroqClient          groqClient;
     private final FrameworkRepository frameworkRepo;
     private final GapRepository       gapRepo;
+    private final DocumentService     documentService;
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -94,6 +103,57 @@ public class PolicyGeneratorService {
                 .durationMs(System.currentTimeMillis() - start)
                 .generatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    // ── Save to Documents ─────────────────────────────────────────────────────
+
+    /**
+     * Saves a generated policy as a Document record so it:
+     *   1. Appears in the Documents page with status = analyzed
+     *   2. Has extracted_text set (the markdown content) so gap detection runs on it
+     *   3. Gets framework codes set from the policy's frameworkCode
+     *   4. Can be re-analyzed by gap detection to verify coverage
+     *
+     * The markdown content is wrapped in a MockMultipartFile so it flows through
+     * the existing DocumentService.uploadDocument() pipeline — Tika runs on it,
+     * frameworks are auto-detected from the policy text, coverage score is set.
+     */
+    @Transactional
+    public DocumentResponse saveToDocuments(PolicyGenerateResponse policy, String savedByName) {
+        log.info("Saving generated policy to Documents: {}", policy.getTitle());
+
+        try {
+            // Wrap markdown string as a MultipartFile so it flows through
+            // DocumentService.uploadDocument() — Tika handles plain text natively,
+            // extraction status will be SUCCESS and text is indexed immediately.
+            byte[] contentBytes = policy.getContent().getBytes(StandardCharsets.UTF_8);
+            String filename = buildFilename(policy.getPolicyType(), policy.getFramework());
+
+            MultipartFile file = new MarkdownMultipartFile(filename, contentBytes);
+
+            com.techcorp.compliance.dto.DocumentDTOs.DocumentUploadRequest request =
+                    com.techcorp.compliance.dto.DocumentDTOs.DocumentUploadRequest.builder()
+                            .file(file)
+                            .name(policy.getTitle())
+                            .description(String.format(
+                                    "AI-generated policy. Framework: %s. Engine: %s. Generated: %s",
+                                    policy.getFramework(),
+                                    policy.getEngine(),
+                                    policy.getGeneratedAt()))
+                            .type("policy")
+                            .frameworkIds(resolveFrameworkCode(policy.getFramework()))
+                            .uploadedByName(savedByName != null ? savedByName : "Policy Generator")
+                            .build();
+
+            DocumentResponse saved = documentService.uploadDocument(request);
+            log.info("Policy saved to Documents: id={}, status={}, frameworks={}",
+                    saved.getId(), saved.getStatus(), saved.getFrameworks());
+            return saved;
+
+        } catch (Exception e) {
+            log.error("Failed to save policy to Documents: {}", policy.getTitle(), e);
+            throw new RuntimeException("Failed to save policy to Documents: " + e.getMessage(), e);
+        }
     }
 
     /** Returns all supported policy types with metadata. */
@@ -704,6 +764,58 @@ public class PolicyGeneratorService {
         return frameworkRepo.findByCode(code)
                 .map(Framework::getName)
                 .orElse(code);
+    }
+
+    /** Build a clean filename like access_control_policy_ISO27001.md */
+    private String buildFilename(String policyType, String frameworkName) {
+        String fw = frameworkName != null && !frameworkName.equals("General")
+                ? "_" + frameworkName.replaceAll("[^A-Za-z0-9]", "")
+                : "";
+        return policyType + "_policy" + fw + ".md";
+    }
+
+    /**
+     * The policy stores the framework full name (e.g. "ISO/IEC 27001").
+     * DocumentService.uploadDocument() expects the framework code (e.g. "ISO27001").
+     * Try to find the code by matching the stored name against the framework table.
+     */
+    private String resolveFrameworkCode(String frameworkName) {
+        if (frameworkName == null || frameworkName.equals("General")) return "";
+        return frameworkRepo.findAllActiveOrderByCode().stream()
+                .filter(f -> f.getName().equals(frameworkName) || f.getCode().equals(frameworkName))
+                .map(Framework::getCode)
+                .findFirst()
+                .orElse(frameworkName);
+    }
+
+    // ── Lightweight MultipartFile wrapper for generated markdown text ─────────
+
+    /**
+     * Wraps a byte array as a MultipartFile so generated policy text can flow
+     * through the existing DocumentService.uploadDocument() pipeline.
+     *
+     * No test-scope dependencies — this is a plain implementation of the interface.
+     */
+    private static class MarkdownMultipartFile implements MultipartFile {
+
+        private final String name;
+        private final byte[] content;
+
+        MarkdownMultipartFile(String filename, byte[] content) {
+            this.name    = filename;
+            this.content = content;
+        }
+
+        @Override public String getName()                  { return "file"; }
+        @Override public String getOriginalFilename()      { return name; }
+        @Override public String getContentType()           { return "text/markdown"; }
+        @Override public boolean isEmpty()                 { return content.length == 0; }
+        @Override public long getSize()                    { return content.length; }
+        @Override public byte[] getBytes()                 { return content; }
+        @Override public InputStream getInputStream()      { return new ByteArrayInputStream(content); }
+        @Override public void transferTo(File dest) throws IOException, IllegalStateException {
+            java.nio.file.Files.write(dest.toPath(), content);
+        }
     }
 
     private String buildGapContext(String frameworkCode) {

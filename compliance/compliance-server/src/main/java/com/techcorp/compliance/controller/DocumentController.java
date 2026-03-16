@@ -168,7 +168,7 @@ public class DocumentController {
 
     /**
      * Get document statistics
-     * 
+     *
      * GET /api/v1/documents/stats
      */
     @GetMapping("/stats")
@@ -176,5 +176,43 @@ public class DocumentController {
         log.info("Getting document statistics");
         DocumentStatsResponse stats = documentService.getDocumentStats();
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Re-run Tika text extraction on an already-uploaded document.
+     * Also re-maps frameworks and recalculates coverage score.
+     *
+     * POST /api/v1/documents/{id}/analyze
+     *
+     * Called by the "Analyze" (re-extract) icon button in DocumentsPage.
+     * Also called automatically after "Save to Docs" in PolicyGeneratorPage
+     * to verify the generated policy covers the right controls.
+     */
+    @PostMapping("/{id}/analyze")
+    public ResponseEntity<DocumentResponse> analyzeDocument(@PathVariable String id) {
+        log.info("Analyzing document: {}", id);
+        try {
+            DocumentResponse response = documentService.analyze(id);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Analysis failed for document: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Search documents by name keyword.
+     *
+     * GET /api/v1/documents/search?keyword=access+control
+     *
+     * Separate from GET /documents (which supports framework/type filters)
+     * so the Documents page search bar doesn't conflict with filter params.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<DocumentResponse>> searchDocuments(
+            @RequestParam("keyword") String keyword) {
+        log.info("Searching documents by keyword: {}", keyword);
+        List<DocumentResponse> results = documentService.getAll(keyword);
+        return ResponseEntity.ok(results);
     }
 }
