@@ -14,4 +14,5 @@ export const PAGE_TITLES: Record<PageId, string> = {
   risk:       'Risk Scoring',
   reports:    'Reports & Exports',
   aiInsights: 'AI Insights',
+  policyGen:  'Policy Generator',
 };

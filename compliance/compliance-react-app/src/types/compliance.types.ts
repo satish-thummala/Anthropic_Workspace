@@ -163,7 +163,8 @@ export type PageId =
   | "risk"
   | "reports"
   | "aiInsights"
-  | "complianceQA";
+  | "complianceQA"
+  | "policyGen";
 
 export interface ToastMessage {
   id: number;
