@@ -15,4 +15,5 @@ export const PAGE_TITLES: Record<PageId, string> = {
   reports:    'Reports & Exports',
   aiInsights: 'AI Insights',
   policyGen:  'Policy Generator',
+  auditTrail: 'Audit Trail',
 };

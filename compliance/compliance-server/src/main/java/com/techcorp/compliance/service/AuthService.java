@@ -1,6 +1,7 @@
 package com.techcorp.compliance.service;
 
 import com.techcorp.compliance.dto.AuthDTOs.*;
+import com.techcorp.compliance.entity.AuditLog.Action;
 import com.techcorp.compliance.entity.RefreshToken;
 import com.techcorp.compliance.entity.User;
 import com.techcorp.compliance.repository.RefreshTokenRepository;
@@ -25,9 +26,10 @@ import java.util.UUID;
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final UserRepository userRepository;
+    private final UserRepository         userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final JwtUtil jwtUtil;
+    private final JwtUtil                jwtUtil;
+    private final AuditService           auditService;
 
     @Value("${app.jwt.refresh-token-expiry}")
     private long refreshTokenExpiry;
@@ -59,6 +61,9 @@ public class AuthService {
         String refreshToken = createRefreshToken(user);
 
         log.info("Successful login for user: {}", user.getEmail());
+        auditService.logForUser(
+                user.getEmail(), Action.USER_LOGIN,
+                "Auth", null, user.getName(), "Successful login");
         return buildLoginResponse(user, accessToken, refreshToken);
     }
 
@@ -100,6 +105,9 @@ public class AuthService {
         userRepository.findByEmail(email).ifPresent(user -> {
             refreshTokenRepository.revokeAllUserTokens(user);
             log.info("User logged out: {}", email);
+            auditService.logForUser(
+                    email, Action.USER_LOGOUT,
+                    "Auth", null, user.getName(), "User logged out");
         });
     }
 

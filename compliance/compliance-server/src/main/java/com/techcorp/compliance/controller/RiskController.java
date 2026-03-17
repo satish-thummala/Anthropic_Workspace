@@ -1,6 +1,8 @@
 package com.techcorp.compliance.controller;
 
 import com.techcorp.compliance.dto.RiskDTOs.*;
+import com.techcorp.compliance.entity.AuditLog.Action;
+import com.techcorp.compliance.service.AuditService;
 import com.techcorp.compliance.service.RiskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +15,9 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class RiskController {
 
-    private final RiskService riskService;
+    private final RiskService  riskService;
+    private final AuditService auditService;
+
 
     // ── GET /api/v1/risk/score ────────────────────────────────────────────────
     /**

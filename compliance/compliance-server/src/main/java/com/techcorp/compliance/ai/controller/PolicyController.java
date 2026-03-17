@@ -3,6 +3,8 @@ package com.techcorp.compliance.ai.controller;
 import com.techcorp.compliance.ai.dto.PolicyDTOs.*;
 import com.techcorp.compliance.ai.service.PolicyGeneratorService;
 import com.techcorp.compliance.dto.DocumentDTOs.DocumentResponse;
+import com.techcorp.compliance.entity.AuditLog.Action;
+import com.techcorp.compliance.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +28,7 @@ import java.util.List;
 public class PolicyController {
 
     private final PolicyGeneratorService policyService;
+    private final AuditService            auditService;
 
     /**
      * POST /api/v1/ai/policy/generate
@@ -63,6 +66,9 @@ public class PolicyController {
 
         try {
             PolicyGenerateResponse response = policyService.generate(request);
+            auditService.log(Action.POLICY_GENERATED, "Policy", null,
+                    response.getTitle(),
+                    "Generated via " + response.getEngine() + " in " + response.getDurationMs() + "ms");
             log.info("Policy generated: {} via {} in {}ms",
                     response.getTitle(), response.getEngine(), response.getDurationMs());
             return ResponseEntity.ok(response);
@@ -134,6 +140,9 @@ public class PolicyController {
                     .build();
 
             DocumentResponse saved = policyService.saveToDocuments(policy, request.getSavedByName());
+            auditService.log(Action.POLICY_SAVED_TO_DOCS, "Document", saved.getId(),
+                    request.getTitle(),
+                    "Policy saved to Documents: " + request.getTitle());
             log.info("Policy saved to Documents: id={}", saved.getId());
             return ResponseEntity.ok(saved);
 

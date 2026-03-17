@@ -56,6 +56,18 @@ const PolicyIcon = (p: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const AuditIcon = (p: React.SVGProps<SVGSVGElement>) => (
+  <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="9" y1="12" x2="15" y2="12"/>
+    <line x1="9" y1="16" x2="12" y2="16"/>
+    <line x1="9" y1="8" x2="10" y2="8"/>
+    <circle cx="17" cy="17" r="4"/>
+    <line x1="21" y1="21" x2="19" y2="19"/>
+  </svg>
+);
+
 const NAV_ITEMS: NavEntry[] = [
   {
     id: "dashboard",
@@ -75,7 +87,8 @@ const NAV_ITEMS: NavEntry[] = [
   { id: "reports", label: "Reports", Icon: Icons.Report },
   { id: "aiInsights", label: "AI Insights", Icon: SparkleIcon, section: "AI" },
   { id: "complianceQA", label: "Compliance Q&A", Icon: ChatIcon },
-  { id: "policyGen", label: "Policy Generator", Icon: PolicyIcon },
+  { id: "policyGen",   label: "Policy Generator", Icon: PolicyIcon },
+  { id: "auditTrail", label: "Audit Trail",       Icon: AuditIcon },
 ];
 
 interface SidebarProps {
@@ -117,7 +130,7 @@ export function Sidebar({ page, setPage, user, onLogout }: SidebarProps) {
                 </div>
               )}
               <button
-                className={`nav-item${page === n.id ? " active" : ""}${n.id === "aiInsights" || n.id === "complianceQA" || n.id === "policyGen" ? " nav-item-ai" : ""}`}
+                className={`nav-item${page === n.id ? " active" : ""}${n.id === "aiInsights" || n.id === "complianceQA" || n.id === "policyGen" || n.id === "auditTrail" ? " nav-item-ai" : ""}`}
                 onClick={() => setPage(n.id)}
               >
                 <n.Icon style={{ width: 16, height: 16 }} />

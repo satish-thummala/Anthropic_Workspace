@@ -1,6 +1,8 @@
 package com.techcorp.compliance.controller;
 
 import com.techcorp.compliance.dto.ReportDTOs.*;
+import com.techcorp.compliance.entity.AuditLog.Action;
+import com.techcorp.compliance.service.AuditService;
 import com.techcorp.compliance.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +20,7 @@ import java.util.List;
 public class ReportController {
 
     private final ReportService reportService;
+    private final AuditService  auditService;
 
     // ── GET /api/v1/reports ───────────────────────────────────────────────────
     /**

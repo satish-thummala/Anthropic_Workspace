@@ -1,6 +1,8 @@
 package com.techcorp.compliance.controller;
 
 import com.techcorp.compliance.dto.DocumentDTOs.*;
+import com.techcorp.compliance.entity.AuditLog.Action;
+import com.techcorp.compliance.service.AuditService;
 import com.techcorp.compliance.service.DocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ import java.util.List;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final AuditService    auditService;
 
     /**
      * Upload a new document
@@ -78,7 +81,9 @@ public class DocumentController {
             
             // Upload
             DocumentResponse response = documentService.uploadDocument(request);
-            
+            auditService.log(Action.DOCUMENT_UPLOADED, "Document", response.getId(),
+                    response.getName(), "Uploaded: " + response.getName()
+                    + " (" + response.getSize() + ") frameworks=" + response.getFrameworks());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
             
         } catch (Exception e) {
@@ -134,6 +139,8 @@ public class DocumentController {
         
         try {
             documentService.deleteDocument(id);
+            auditService.log(Action.DOCUMENT_DELETED, "Document", id,
+                    id, "Document deleted");
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             log.error("Failed to delete document: {}", id, e);
@@ -193,6 +200,9 @@ public class DocumentController {
         log.info("Analyzing document: {}", id);
         try {
             DocumentResponse response = documentService.analyze(id);
+            auditService.log(Action.DOCUMENT_ANALYZED, "Document", id,
+                    response.getName(), "Re-extracted text, frameworks=" + response.getFrameworks()
+                    + " score=" + response.getCoverageScore());
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             log.error("Analysis failed for document: {}", id, e);

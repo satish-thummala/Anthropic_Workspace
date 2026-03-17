@@ -2,7 +2,9 @@ package com.techcorp.compliance.controller;
 
 import com.techcorp.compliance.dto.AuthDTOs.ApiResponse;
 import com.techcorp.compliance.dto.GapDTOs.*;
+import com.techcorp.compliance.entity.AuditLog.Action;
 import com.techcorp.compliance.service.GapService;
+import com.techcorp.compliance.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import java.util.List;
 public class GapController {
 
     private final GapService gapService;
+    private final AuditService auditService;
 
     // ── GET /api/v1/gaps ──────────────────────────────────────────────────────
     /**
@@ -73,7 +76,13 @@ public class GapController {
             @PathVariable String id,
             @RequestBody UpdateStatusRequest request) {
         log.info("PATCH /gaps/{}/status → {}", id, request.getStatus());
-        return ResponseEntity.ok(gapService.updateStatus(id, request));
+        GapResponse gap = gapService.getById(id);
+        GapResponse updated = gapService.updateStatus(id, request);
+        auditService.logChange(Action.GAP_STATUS_CHANGED, "Gap", id,
+                gap.getControlCode() + " — " + gap.getControlTitle(),
+                "Status changed: " + gap.getStatus() + " → " + updated.getStatus(),
+                gap.getStatus(), updated.getStatus());
+        return ResponseEntity.ok(updated);
     }
 
     // ── PATCH /api/v1/gaps/{id}/assign ────────────────────────────────────────
@@ -92,7 +101,11 @@ public class GapController {
             @PathVariable String id,
             @RequestBody AssignGapRequest request) {
         log.info("PATCH /gaps/{}/assign → userId={}", id, request.getAssignedToId());
-        return ResponseEntity.ok(gapService.assign(id, request));
+        GapResponse assigned = gapService.assign(id, request);
+        auditService.log(Action.GAP_ASSIGNED, "Gap", id,
+                assigned.getControlCode() + " — " + assigned.getControlTitle(),
+                "Assigned to: " + (assigned.getAssignedToName() != null ? assigned.getAssignedToName() : "unassigned"));
+        return ResponseEntity.ok(assigned);
     }
 
     // ── PATCH /api/v1/gaps/{id}/notes ─────────────────────────────────────────
@@ -129,6 +142,8 @@ public class GapController {
         GapAnalysisResult result = gapService.runAnalysis();
         log.info("Gap analysis complete: {} new gaps, {} total active",
                 result.getNewGapsCreated(), result.getTotalActiveGaps());
+        auditService.log(Action.GAP_ANALYSIS_RUN, "System", null, "Gap Analysis",
+                result.getNewGapsCreated() + " new gaps created, " + result.getTotalActiveGaps() + " total active");
         return ResponseEntity.ok(result);
     }
 }

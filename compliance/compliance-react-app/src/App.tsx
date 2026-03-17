@@ -16,6 +16,7 @@ import { ReportsPage } from "./features/Reports/ReportsPage";
 import { AiInsightsPage } from "./features/AiInsights/AiInsightsPage";
 import { ComplianceQAPage } from "./features/ComplianceQA/ComplianceQAPage";
 import { PolicyGeneratorPage } from "./features/Policy/PolicyGeneratorPage";
+import { AuditTrailPage } from "./features/Audit/AuditTrailPage";
 import "./styles/globals.css";
 
 const PAGE_MAP: Record<PageId, React.FC<{ toast: any }>> = {
@@ -27,7 +28,8 @@ const PAGE_MAP: Record<PageId, React.FC<{ toast: any }>> = {
   reports: ReportsPage,
   aiInsights: AiInsightsPage,
   complianceQA: ComplianceQAPage,
-  policyGen: PolicyGeneratorPage,
+  policyGen:  PolicyGeneratorPage,
+  auditTrail: AuditTrailPage,
 };
 
 function AuthenticatedApp() {
