@@ -1,7 +1,6 @@
 // ============================================================================
-// CORRECTED: src/services/report-api.ts
+// src/services/report-api.ts
 // ============================================================================
-// This version imports types from compliance.types.ts (following your pattern)
 
 import apiClient from './api-client';
 import type {
@@ -59,27 +58,32 @@ export const reportAPI = {
    */
   generate: async (request: GenerateReportRequest): Promise<GenerateReportResponse> => {
     const { data } = await apiClient.post<GenerateReportResponse>(
-      '/reports/generate',
-      request
-    );
+      '/reports/generate', request);
     return data;
   },
 
   /**
    * GET /api/v1/reports/{id}/download
-   * Download a report
+   * Backend generates a real .docx and streams it — browser saves it directly.
    */
-  download: async (id: string): Promise<{ filePath: string; message: string }> => {
-    const { data } = await apiClient.get(`/reports/${id}/download`);
-    return data;
+  download: async (id: string, reportName: string): Promise<void> => {
+    const response = await apiClient.get(`/reports/${id}/download`, {
+      responseType: 'blob',
+    });
+    const blob     = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    a.href         = url;
+    a.download     = reportName.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
-  /**
-   * DELETE /api/v1/reports/{id}
-   * Delete a report
-   */
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/reports/${id}`);
   },
 };
-

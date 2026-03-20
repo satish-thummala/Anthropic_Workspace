@@ -123,12 +123,11 @@ export function ReportsPage({ toast }: Props) {
   // ── Download report ───────────────────────────────────────────────────────
   async function handleDownload(report: ApiReport) {
     try {
-      const result = await reportAPI.download(report.id);
-      toast(`Downloading ${report.name}…`, 'info');
-      // In production, this would trigger actual file download
-      console.log('Download path:', result.filePath);
+      toast(`Building Word document…`, 'info');
+      await reportAPI.download(report.id, report.name);
+      toast(`${report.name} downloaded as .docx`, 'success');
     } catch (err) {
-      toast('Download failed', 'error');
+      toast('Download failed — report may still be generating', 'error');
     }
   }
 
