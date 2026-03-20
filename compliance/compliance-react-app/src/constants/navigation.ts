@@ -13,7 +13,9 @@ export const PAGE_TITLES: Record<PageId, string> = {
   gaps:       'Gap Analysis',
   risk:       'Risk Scoring',
   reports:    'Reports & Exports',
-  aiInsights: 'AI Insights',
+  aiInsights:   'AI Insights',
+  complianceQA: 'Compliance Q&A',
   policyGen:  'Policy Generator',
   auditTrail: 'Audit Trail',
+  incidents:  'Incident Management',
 };

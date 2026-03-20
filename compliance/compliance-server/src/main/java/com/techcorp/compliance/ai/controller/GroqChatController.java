@@ -2,6 +2,9 @@ package com.techcorp.compliance.ai.controller;
 
 import com.techcorp.compliance.ai.groq.client.GroqClient;
 import com.techcorp.compliance.ai.groq.service.GroqAIService;
+import com.techcorp.compliance.entity.AuditLog.Action;
+import com.techcorp.compliance.service.AuditService;
+import com.techcorp.compliance.service.IncidentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +25,10 @@ import java.util.Map;
 @Slf4j
 public class GroqChatController {
 
-    private final GroqAIService groqAIService;
-    private final GroqClient    groqClient;
+    private final GroqAIService  groqAIService;
+    private final GroqClient     groqClient;
+    private final AuditService   auditService;
+    private final IncidentService incidentService;
 
     // ── GET /api/v1/ai/insights/status ────────────────────────────────────────
     @GetMapping("/status")
@@ -104,5 +109,43 @@ public class GroqChatController {
             "engine",     groqAIService.isUsingGroq() ? "groq" : "local",
             "durationMs", durationMs
         );
+    }
+
+    // ── POST /api/v1/ai/insights/incident-report ──────────────────────────────
+    /**
+     * Generates a formal incident report for a specific incident.
+     * Body: { "incidentId": "uuid" }
+     * Also saves the AI narrative back to the incident record.
+     */
+    @PostMapping("/incident-report")
+    public ResponseEntity<Map<String, Object>> generateIncidentReport(
+            @RequestBody Map<String, String> body) {
+        String incidentId = body.get("incidentId");
+        log.info("POST /ai/insights/incident-report incidentId={}", incidentId);
+
+        long start = System.currentTimeMillis();
+        String text = groqAIService.generateIncidentReport(incidentId);
+
+        // Persist the AI narrative back to the incident
+        incidentService.saveAiNarrative(incidentId, text);
+        auditService.log(Action.INCIDENT_REPORT_GENERATED, "Incident", incidentId,
+                incidentId, "AI incident report generated");
+
+        return ResponseEntity.ok(buildResponse(text, "incident-report",
+                System.currentTimeMillis() - start));
+    }
+
+    // ── GET /api/v1/ai/insights/governance ───────────────────────────────────
+    /**
+     * Returns the executive governance summary — same as /brief but
+     * named for the governance context and exposed as a dedicated endpoint.
+     */
+    @GetMapping("/governance")
+    public ResponseEntity<Map<String, Object>> governanceSummary() {
+        log.info("GET /ai/insights/governance");
+        long start = System.currentTimeMillis();
+        String text = groqAIService.executiveBrief();
+        return ResponseEntity.ok(buildResponse(text, "governance",
+                System.currentTimeMillis() - start));
     }
 }

@@ -4,6 +4,7 @@ import com.techcorp.compliance.ai.groq.client.GroqClient;
 import com.techcorp.compliance.ai.groq.fallback.LocalFallbackEngine;
 import com.techcorp.compliance.entity.Gap;
 import com.techcorp.compliance.repository.*;
+import com.techcorp.compliance.service.IncidentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ public class GroqAIService {
     private final ControlRepository    controlRepo;
     private final FrameworkRepository  frameworkRepo;
     private final RiskSnapshotRepository snapshotRepo;
+    private final IncidentService         incidentService;
 
     // ── 1. Gap Priority Ranker ─────────────────────────────────────────────────
 
@@ -171,6 +173,178 @@ public class GroqAIService {
             log.warn("Groq failed for executiveBrief, falling back: {}", e.getMessage());
             return fallback.executiveBrief();
         }
+    }
+
+
+    // ── 5. Incident Report Generator ──────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public String generateIncidentReport(String incidentId) {
+        var incident = incidentService.getById(incidentId);
+
+        if (!groqClient.isAvailable()) {
+            return buildFallbackIncidentReport(incident);
+        }
+
+        try {
+            String system = """
+                You are a senior information security officer writing a formal incident report.
+                Write in professional, precise language suitable for board review and regulatory submission.
+                Structure the report clearly with all required sections.
+                Be specific about timelines, impacts, and actions. Do not use vague language.
+                Format as Markdown with ## section headings.
+                """;
+
+            String prompt = String.format("""
+                Generate a formal incident report for the following security incident:
+
+                Title: %s
+                Type: %s
+                Severity: %s
+                Status: %s
+                Affected Systems: %s
+                Affected Frameworks: %s
+                Personal Data Involved: %s
+                Records Affected: %s
+                Detected: %s
+                Description: %s
+                Root Cause: %s
+                Corrective Actions: %s
+                Lessons Learned: %s
+
+                Write a complete formal incident report with these sections:
+                1. Executive Summary
+                2. Incident Timeline
+                3. Impact Assessment (systems, data, regulatory)
+                4. Root Cause Analysis
+                5. Containment and Remediation Actions
+                6. Regulatory Notification Requirements (%s)
+                7. Lessons Learned and Preventive Measures
+                8. Sign-off and Review
+
+                Make it audit-ready and specific to this incident.
+                """,
+                    incident.getTitle(),
+                    incident.getIncidentType(),
+                    incident.getSeverity(),
+                    incident.getStatus(),
+                    incident.getAffectedSystems() != null ? incident.getAffectedSystems() : "Not specified",
+                    incident.getAffectedFrameworks() != null ? incident.getAffectedFrameworks() : "Not specified",
+                    incident.isPersonalDataInvolved() ? "YES — regulatory notification may be required" : "No",
+                    incident.getRecordsAffected() != null ? incident.getRecordsAffected() : "Unknown",
+                    incident.getDetectedAt() != null ? incident.getDetectedAt().toString() : "Unknown",
+                    incident.getDescription() != null ? incident.getDescription() : "Not provided",
+                    incident.getRootCause() != null ? incident.getRootCause() : "Under investigation",
+                    incident.getCorrectiveActions() != null ? incident.getCorrectiveActions() : "In progress",
+                    incident.getLessonsLearned() != null ? incident.getLessonsLearned() : "Pending review",
+                    incident.isPersonalDataInvolved()
+                            ? "Personal data involved — GDPR Art.33 (72hr authority notification), HIPAA Breach Notification Rule"
+                            : "No personal data involved"
+            );
+
+            return groqClient.chat(system, prompt, 2000, 0.3);
+        } catch (Exception e) {
+            log.warn("Groq failed for incident report, falling back: {}", e.getMessage());
+            return buildFallbackIncidentReport(incident);
+        }
+    }
+
+    private String buildFallbackIncidentReport(com.techcorp.compliance.dto.IncidentDTOs.IncidentResponse i) {
+        String date = java.time.LocalDate.now().toString();
+        return String.format("""
+            # Incident Report
+
+            | Field | Value |
+            |---|---|
+            | **Incident ID** | %s |
+            | **Title** | %s |
+            | **Type** | %s |
+            | **Severity** | %s |
+            | **Status** | %s |
+            | **Report Date** | %s |
+
+            ---
+
+            ## 1. Executive Summary
+
+            A **%s** severity incident of type **%s** was detected on %s.
+            Current status: **%s**.%s
+
+            ## 2. Incident Timeline
+
+            | Milestone | Timestamp |
+            |---|---|
+            | Detected | %s |
+            | Contained | %s |
+            | Resolved | %s |
+            | Closed | %s |
+
+            ## 3. Impact Assessment
+
+            **Affected Systems:** %s
+
+            **Affected Frameworks:** %s
+
+            **Personal Data Involved:** %s%s
+
+            ## 4. Root Cause Analysis
+
+            %s
+
+            ## 5. Containment and Remediation Actions
+
+            %s
+
+            ## 6. Regulatory Notification Requirements
+
+            %s
+
+            ## 7. Lessons Learned
+
+            %s
+
+            ## 8. Sign-off
+
+            | Role | Name | Date |
+            |---|---|---|
+            | Incident Owner | %s | %s |
+            | CISO | | |
+            | DPO | | |
+
+            ---
+            *This report was generated by ComplianceAI Platform. Review and sign before submission.*
+            """,
+                i.getId(), i.getTitle(),
+                i.getIncidentType() != null ? i.getIncidentType().replace("_", " ") : "—",
+                i.getSeverity(), i.getStatus(), date,
+                i.getSeverity(),
+                i.getIncidentType() != null ? i.getIncidentType().replace("_", " ") : "unknown type",
+                i.getDetectedAt() != null ? i.getDetectedAt().toLocalDate() : "unknown date",
+                i.getStatus(),
+                i.getDescription() != null ? " " + i.getDescription() : "",
+                i.getDetectedAt() != null  ? i.getDetectedAt().toString()  : "—",
+                i.getContainedAt() != null ? i.getContainedAt().toString() : "—",
+                i.getResolvedAt()  != null ? i.getResolvedAt().toString()  : "—",
+                i.getClosedAt()    != null ? i.getClosedAt().toString()    : "—",
+                i.getAffectedSystems()   != null ? i.getAffectedSystems()   : "Not specified",
+                i.getAffectedFrameworks() != null ? i.getAffectedFrameworks() : "Not specified",
+                i.isPersonalDataInvolved() ? "**YES**" : "No",
+                i.isPersonalDataInvolved()
+                    ? "\n\n> **Records affected:** " + (i.getRecordsAffected() != null ? i.getRecordsAffected() : "Unknown")
+                    : "",
+                i.getRootCause()         != null ? i.getRootCause()         : "*Root cause analysis pending.*",
+                i.getCorrectiveActions() != null ? i.getCorrectiveActions() : "*Corrective actions in progress.*",
+                i.isPersonalDataInvolved()
+                    ? "Personal data was involved in this incident. Regulatory notification obligations:\n\n"
+                    + "- **GDPR Article 33:** Notify supervisory authority within 72 hours of becoming aware\n"
+                    + "- **GDPR Article 34:** Notify affected individuals if high risk to their rights\n"
+                    + "- **HIPAA Breach Notification Rule:** Notify HHS and affected individuals\n\n"
+                    + "**Regulator notified:** " + (i.isRegulatorNotified() ? "Yes" : "**PENDING**")
+                    : "No personal data was involved in this incident. No mandatory regulatory notification required.",
+                i.getLessonsLearned()    != null ? i.getLessonsLearned()    : "*Post-incident review pending.*",
+                i.getAssignedToName()    != null ? i.getAssignedToName()    : "—",
+                date
+        );
     }
 
     // ── Context builders — feed live DB data to Groq ──────────────────────────

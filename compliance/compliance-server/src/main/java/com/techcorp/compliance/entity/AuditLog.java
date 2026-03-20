@@ -65,7 +65,14 @@ public class AuditLog {
         REPORT_GENERATED,
 
         // Risk
-        RISK_RECALCULATED
+        RISK_RECALCULATED,
+
+        // Incidents
+        INCIDENT_CREATED,
+        INCIDENT_STATUS_CHANGED,
+        INCIDENT_UPDATED,
+        INCIDENT_DELETED,
+        INCIDENT_REPORT_GENERATED
     }
 
     public enum Outcome { SUCCESS, FAILURE }

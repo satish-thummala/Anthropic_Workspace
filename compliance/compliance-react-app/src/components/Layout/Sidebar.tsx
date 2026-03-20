@@ -68,6 +68,14 @@ const AuditIcon = (p: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const IncidentIcon = (p: React.SVGProps<SVGSVGElement>) => (
+  <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+);
+
 const NAV_ITEMS: NavEntry[] = [
   {
     id: "dashboard",
@@ -89,6 +97,7 @@ const NAV_ITEMS: NavEntry[] = [
   { id: "complianceQA", label: "Compliance Q&A", Icon: ChatIcon },
   { id: "policyGen",   label: "Policy Generator", Icon: PolicyIcon },
   { id: "auditTrail", label: "Audit Trail",       Icon: AuditIcon },
+  { id: "incidents",  label: "Incidents",         Icon: IncidentIcon },
 ];
 
 interface SidebarProps {
