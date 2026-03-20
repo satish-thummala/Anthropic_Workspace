@@ -17,5 +17,7 @@ export const PAGE_TITLES: Record<PageId, string> = {
   complianceQA: 'Compliance Q&A',
   policyGen:  'Policy Generator',
   auditTrail: 'Audit Trail',
-  incidents:  'Incident Management',
+  incidents:     'Incident Management',
+  sopManagement: 'SOP Management',
+  employeePortal:'My Compliance Tasks',
 };

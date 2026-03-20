@@ -103,7 +103,15 @@ public class AuditController {
             Map.of("value", "POLICY_SAVED_TO_DOCS",   "label", "Policy Saved to Docs"),
             Map.of("value", "REPORT_GENERATED",       "label", "Report Generated"),
             Map.of("value", "RISK_RECALCULATED",      "label", "Risk Recalculated"),
-            Map.of("value", "FRAMEWORK_COVERAGE_UPDATED", "label", "Framework Coverage Updated")
+            Map.of("value", "FRAMEWORK_COVERAGE_UPDATED", "label", "Framework Coverage Updated"),
+            Map.of("value", "INCIDENT_CREATED",           "label", "Incident Reported"),
+            Map.of("value", "INCIDENT_STATUS_CHANGED",    "label", "Incident Status Changed"),
+            Map.of("value", "INCIDENT_REPORT_GENERATED",  "label", "Incident Report Generated"),
+            Map.of("value", "SOP_CREATED",                "label", "SOP Created"),
+            Map.of("value", "SOP_TASK_ASSIGNED",          "label", "SOP Task Assigned"),
+            Map.of("value", "SOP_TASK_ACKNOWLEDGED",      "label", "SOP Acknowledged"),
+            Map.of("value", "SOP_TASK_APPROVED",          "label", "SOP Approved"),
+            Map.of("value", "SOP_TASK_REJECTED",          "label", "SOP Rejected")
         );
         return ResponseEntity.ok(actions);
     }

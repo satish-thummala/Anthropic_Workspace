@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: response.user.id.toString(),
         name: response.user.name,
         email: response.user.email,
-        role: response.user.role as "admin" | "analyst" | "viewer",
+        role: response.user.role,  // Keep exact role string from backend
         organization: response.user.organization,
         avatar: response.user.avatar,
       };

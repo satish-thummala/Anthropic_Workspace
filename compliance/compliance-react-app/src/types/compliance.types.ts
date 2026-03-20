@@ -4,7 +4,7 @@ export interface User {
   id?: string;
   email: string;
   name: string;
-  role: string;
+  role: string;            // 'Employee' | 'Admin' | 'Analyst' | etc.
   org: string;
   organization?: string;
   avatar: string;
@@ -166,7 +166,9 @@ export type PageId =
   | "complianceQA"
   | "policyGen"
   | "auditTrail"
-  | "incidents";
+  | "incidents"
+  | "sopManagement"
+  | "employeePortal";
 
 export interface ToastMessage {
   id: number;

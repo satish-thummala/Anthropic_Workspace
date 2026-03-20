@@ -40,8 +40,12 @@ public class DataInitializer implements CommandLineRunner {
     private void seedUsers() {
         seedUser("admin@techcorp.com",   "Admin@123",   "Sarah Chen",      "Compliance Analyst", "Nirvahak Inc.", "SC");
         seedUser("manager@techcorp.com", "Manager@123", "James Patel",     "Risk Manager",       "Nirvahak Inc.", "JP");
-        seedUser("analyst@techcorp.com", "Analyst@123", "Emily Rodriguez", "Analyst",            "Nirvahak Inc.", "ER");
-        log.info("✓ Users ready");
+        seedUser("analyst@techcorp.com",   "Analyst@123",  "Emily Rodriguez", "Analyst",  "Nirvahak Inc.", "ER");
+        // Employee accounts
+        seedUser("employee1@techcorp.com", "Employee@123", "Alex Turner",    "Employee", "Nirvahak Inc.", "AT");
+        seedUser("employee2@techcorp.com", "Employee@123", "Priya Sharma",   "Employee", "Nirvahak Inc.", "PS");
+        seedUser("employee3@techcorp.com", "Employee@123", "Marcus Johnson", "Employee", "Nirvahak Inc.", "MJ");
+        log.info("✓ Users ready (including 3 employee accounts)");
     }
 
     private void seedUser(String email, String rawPwd, String name,

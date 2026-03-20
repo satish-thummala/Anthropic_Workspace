@@ -46,12 +46,33 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Public endpoints
                 .requestMatchers(
                     "/api/v1/auth/login",
                     "/api/v1/auth/refresh",
                     "/actuator/health",
                     "/files/**"
                 ).permitAll()
+                // Employee-only endpoints
+                .requestMatchers(
+                    "/api/v1/sops/my-tasks",
+                    "/api/v1/sops/tasks/*/acknowledge",
+                    "/api/v1/sops/tasks/*/approve",
+                    "/api/v1/users/me"
+                ).hasAnyRole("EMPLOYEE", "ADMIN", "COMPLIANCE_ANALYST",
+                             "RISK_MANAGER", "ANALYST")
+                // Block employees from all compliance endpoints
+                .requestMatchers(
+                    "/api/v1/gaps/**",
+                    "/api/v1/risks/**",
+                    "/api/v1/reports/**",
+                    "/api/v1/documents/**",
+                    "/api/v1/frameworks/**",
+                    "/api/v1/incidents/**",
+                    "/api/v1/audit/**",
+                    "/api/v1/ai/**",
+                    "/api/v1/notifications/**"
+                ).not().hasRole("EMPLOYEE")
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

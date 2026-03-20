@@ -72,7 +72,16 @@ public class AuditLog {
         INCIDENT_STATUS_CHANGED,
         INCIDENT_UPDATED,
         INCIDENT_DELETED,
-        INCIDENT_REPORT_GENERATED
+        INCIDENT_REPORT_GENERATED,
+
+        // Employee / SOP
+        SOP_CREATED,
+        SOP_UPDATED,
+        SOP_DELETED,
+        SOP_TASK_ASSIGNED,
+        SOP_TASK_ACKNOWLEDGED,
+        SOP_TASK_APPROVED,
+        SOP_TASK_REJECTED
     }
 
     public enum Outcome { SUCCESS, FAILURE }
