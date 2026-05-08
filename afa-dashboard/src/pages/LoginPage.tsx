@@ -3,9 +3,8 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { login, clearError } from '../store'
 import { RootState, AppDispatch } from '../store'
-import { ENTITY_USERS } from '../data/entityConfig'
 
-const HINTS = [
+const EXEC_HINTS = [
   { entity: 'Group CEO',                      email: 'ceo@afa.group',                password: 'afa2025',        color: '#3b82f6' },
   { entity: 'AFA Project & Mgmt Services',    email: 'head@afapm.group',             password: 'afapm2025',      color: '#10b981' },
   { entity: 'AFA PRIME Berhad',               email: 'head@afaprime.group',          password: 'afaprime2025',   color: '#8b5cf6' },
@@ -16,20 +15,25 @@ const HINTS = [
   { entity: 'Terratech Consultants',          email: 'head@terratech.group',         password: 'terratech2025',  color: '#84cc16' },
 ]
 
+const STAFF_HINTS = [
+  { entity: 'Staff — AFA Project & Mgmt',     email: 'staff@afapm.group',            password: 'staff2025',      color: '#10b981' },
+  { entity: 'Staff — AFA Infrastructure',     email: 'staff@afainfra.group',         password: 'staff2025',      color: '#f97316' },
+  { entity: 'Staff — AFA Construction',       email: 'staff@afaconstruction.group',  password: 'staff2025',      color: '#f59e0b' },
+]
+
 export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>()
   const navigate = useNavigate()
   const { isAuthenticated, user, error } = useSelector((s: RootState) => s.auth)
-  const [email, setEmail] = useState('')
+  const [email, setEmail]     = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
+  const [tab, setTab]         = useState<'exec' | 'staff'>('exec')
   const [showHints, setShowHints] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated && user) {
-      navigate(user.defaultPath, { replace: true })
-    }
+    if (isAuthenticated && user) navigate(user.defaultPath, { replace: true })
   }, [isAuthenticated, user, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,30 +45,24 @@ export default function LoginPage() {
     setLoading(false)
   }
 
-  const fillCredentials = (e: string, p: string) => {
-    setEmail(e); setPassword(p); dispatch(clearError()); setShowHints(false)
-  }
+  const fill = (e: string, p: string) => { setEmail(e); setPassword(p); dispatch(clearError()); setShowHints(false) }
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: '#060a14' }}>
-      {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-60 -left-60 w-[500px] h-[500px] rounded-full opacity-20"
           style={{ background: 'radial-gradient(circle, #1e40af 0%, transparent 70%)' }} />
         <div className="absolute -bottom-60 -right-60 w-[500px] h-[500px] rounded-full opacity-15"
           style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }} />
         <svg className="absolute inset-0 w-full h-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#3b82f6" strokeWidth="0.5"/>
-            </pattern>
-          </defs>
+          <defs><pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#3b82f6" strokeWidth="0.5"/>
+          </pattern></defs>
           <rect width="100%" height="100%" fill="url(#grid)"/>
         </svg>
       </div>
 
       <div className="relative z-10 w-full max-w-md px-6">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl mb-4"
             style={{ background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', boxShadow: '0 0 60px rgba(37,99,235,0.4)' }}>
@@ -75,8 +73,7 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-2xl p-7" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' }}>
-          <h2 className="text-lg font-semibold text-white mb-1">Sign In</h2>
-          <p className="text-sm text-slate-400 mb-5">Each entity head has personalised access</p>
+          <h2 className="text-lg font-semibold text-white mb-5">Sign In</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -126,43 +123,59 @@ export default function LoginPage() {
                 ? <span className="flex items-center justify-center gap-2">
                     <svg className="animate-spin" width="16" height="16" fill="none" viewBox="0 0 24 24">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/>
-                    </svg>
-                    Authenticating…
+                    </svg>Authenticating…
                   </span>
                 : 'Access Platform'}
             </button>
           </form>
 
-          {/* Demo credentials toggle */}
+          {/* Demo credentials */}
           <button type="button" onClick={() => setShowHints(!showHints)}
             className="w-full mt-4 py-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
             style={{ background: 'rgba(59,130,246,0.06)', borderRadius: 10, border: '1px dashed rgba(59,130,246,0.25)' }}>
-            {showHints ? '▲ Hide' : '▼ Show'} demo credentials ({HINTS.length} entity logins)
+            {showHints ? '▲ Hide' : '▼ Show'} demo credentials
           </button>
 
           {showHints && (
-            <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto pr-1">
-              {HINTS.map(h => (
-                <button key={h.email} type="button" onClick={() => fillCredentials(h.email, h.password)}
-                  className="w-full text-left px-3 py-2.5 rounded-xl transition-all hover:opacity-90"
-                  style={{ background: `${h.color}12`, border: `1px solid ${h.color}30` }}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-semibold text-white">{h.entity}</div>
-                      <div className="text-xs mt-0.5" style={{ color: h.color }}>{h.email}</div>
-                    </div>
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: h.color }} />
-                  </div>
+            <div className="mt-3">
+              {/* Tab switcher */}
+              <div className="flex rounded-xl overflow-hidden mb-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <button onClick={() => setTab('exec')}
+                  className="flex-1 py-2 text-xs font-semibold transition-all"
+                  style={{ background: tab === 'exec' ? '#2563eb' : 'transparent', color: tab === 'exec' ? '#fff' : '#94a3b8' }}>
+                  Executive / Entity Heads
                 </button>
-              ))}
+                <button onClick={() => setTab('staff')}
+                  className="flex-1 py-2 text-xs font-semibold transition-all"
+                  style={{ background: tab === 'staff' ? '#10b981' : 'transparent', color: tab === 'staff' ? '#fff' : '#94a3b8' }}>
+                  Staff Data Entry
+                </button>
+              </div>
+
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                {(tab === 'exec' ? EXEC_HINTS : STAFF_HINTS).map(h => (
+                  <button key={h.email} type="button" onClick={() => fill(h.email, h.password)}
+                    className="w-full text-left px-3 py-2.5 rounded-xl transition-all hover:opacity-90"
+                    style={{ background: `${h.color}12`, border: `1px solid ${h.color}30` }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-xs font-semibold text-white">{h.entity}</div>
+                        <div className="text-xs mt-0.5" style={{ color: h.color }}>{h.email}</div>
+                      </div>
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: h.color }} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {tab === 'staff' && (
+                <p className="text-xs text-slate-500 mt-2 text-center">All staff accounts use password: <span className="text-slate-400 font-mono">staff2025</span></p>
+              )}
             </div>
           )}
         </div>
-
         <p className="text-center text-xs text-slate-600 mt-5">© 2025 AFA Group Holdings · Confidential</p>
       </div>
-
-      <style>{`@keyframes pulse { 0%,100%{opacity:0.1} 50%{opacity:0.2} }`}</style>
     </div>
   )
 }

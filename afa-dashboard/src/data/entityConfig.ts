@@ -309,3 +309,88 @@ export const ENTITY_USERS: EntityUser[] = [
 export function findUser(email: string, password: string): EntityUser | null {
   return ENTITY_USERS.find(u => u.email === email && u.password === password) ?? null
 }
+
+// ── STAFF USERS ───────────────────────────────────────────────
+// Third login tier — data entry operators, one per entity
+
+export const STAFF_USERS: EntityUser[] = [
+  {
+    email: 'staff@afapm.group',
+    password: 'staff2025',
+    name: 'Hafiz Rahman',
+    role: 'Data Entry — Project & Mgmt',
+    avatar: 'HR',
+    entity: 'AFA Project & Management Services',
+    entityShort: 'AFA PM',
+    entityColor: '#10b981',
+    entityBg: 'linear-gradient(135deg, #065f46, #10b981)',
+    scope: 'entity',
+    defaultPath: '/staff/dashboard',
+    aiContext: 'AFA PM staff data entry',
+    navGroups: [
+      { group: 'DATA ENTRY', items: [
+        { path: '/staff/dashboard',   label: 'My Dashboard',          iconKey: 'grid' },
+        { path: '/staff/projects',    label: 'Project Updates',       iconKey: 'check' },
+        { path: '/staff/hr',          label: 'Daily HR Report',       iconKey: 'users' },
+        { path: '/staff/finance',     label: 'Finance & Expenses',    iconKey: 'money' },
+        { path: '/staff/procurement', label: 'Procurement Requests',  iconKey: 'doc' },
+        { path: '/staff/compliance',  label: 'Compliance Tracking',   iconKey: 'shield' },
+      ]},
+    ],
+  },
+  {
+    email: 'staff@afainfra.group',
+    password: 'staff2025',
+    name: 'Nor Azlin Yusof',
+    role: 'Data Entry — Infrastructure',
+    avatar: 'NA',
+    entity: 'AFA Infrastructure & Development',
+    entityShort: 'INFRA',
+    entityColor: '#f97316',
+    entityBg: 'linear-gradient(135deg, #7c2d12, #f97316)',
+    scope: 'entity',
+    defaultPath: '/staff/dashboard',
+    aiContext: 'AFA Infrastructure staff data entry',
+    navGroups: [
+      { group: 'DATA ENTRY', items: [
+        { path: '/staff/dashboard',   label: 'My Dashboard',          iconKey: 'grid' },
+        { path: '/staff/toll',        label: 'Toll Daily Report',     iconKey: 'layers' },
+        { path: '/staff/projects',    label: 'Project Updates',       iconKey: 'check' },
+        { path: '/staff/hr',          label: 'Daily HR Report',       iconKey: 'users' },
+        { path: '/staff/finance',     label: 'Finance & Expenses',    iconKey: 'money' },
+        { path: '/staff/procurement', label: 'Procurement Requests',  iconKey: 'doc' },
+      ]},
+    ],
+  },
+  {
+    email: 'staff@afaconstruction.group',
+    password: 'staff2025',
+    name: 'Chong Wei Lun',
+    role: 'Data Entry — Construction',
+    avatar: 'CW',
+    entity: 'AFA Construction & Engineering',
+    entityShort: 'C&E',
+    entityColor: '#f59e0b',
+    entityBg: 'linear-gradient(135deg, #78350f, #f59e0b)',
+    scope: 'entity',
+    defaultPath: '/staff/dashboard',
+    aiContext: 'AFA Construction staff data entry',
+    navGroups: [
+      { group: 'DATA ENTRY', items: [
+        { path: '/staff/dashboard',   label: 'My Dashboard',          iconKey: 'grid' },
+        { path: '/staff/projects',    label: 'Project Updates',       iconKey: 'check' },
+        { path: '/staff/hr',          label: 'Daily HR Report',       iconKey: 'users' },
+        { path: '/staff/finance',     label: 'Finance & Expenses',    iconKey: 'money' },
+        { path: '/staff/procurement', label: 'Procurement Requests',  iconKey: 'doc' },
+        { path: '/staff/compliance',  label: 'Compliance Tracking',   iconKey: 'shield' },
+      ]},
+    ],
+  },
+]
+
+// ── Updated findUser to include staff ─────────────────────────
+export function findUserAll(email: string, password: string): EntityUser | null {
+  return ENTITY_USERS.find(u => u.email === email && u.password === password)
+    ?? STAFF_USERS.find(u => u.email === email && u.password === password)
+    ?? null
+}
